@@ -9,15 +9,16 @@ package extract
 import (
 	_ "embed"
 	"fmt"
-	"github.com/pingcap/tidb/parser/ast"
-	_ "github.com/pingcap/tidb/types/parser_driver"
-	"github.com/sirupsen/logrus"
 	"sqlSyntaxAudit/common/utils"
 	"sqlSyntaxAudit/config"
 	"sqlSyntaxAudit/controllers/parser"
 	"sqlSyntaxAudit/forms"
 	logger "sqlSyntaxAudit/middleware/log"
 	"sync"
+
+	"github.com/pingcap/tidb/parser/ast"
+	_ "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/sirupsen/logrus"
 )
 
 // 移除重复的值
@@ -115,7 +116,8 @@ func (e *ExtractTables) checkSelectItem(node ast.ResultSetNode) {
 	case *ast.TableSource:
 		e.checkSelectItem(n.Source)
 	case *ast.TableName:
-		e.Tables = append(e.Tables, n.Name.L)
+		// e.Tables = append(e.Tables, n.Name.L)
+		e.Tables = append(e.Tables, n.Name.O)
 	}
 }
 
