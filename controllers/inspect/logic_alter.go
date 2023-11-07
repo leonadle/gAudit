@@ -383,9 +383,9 @@ func LogicAlterTableRedundantIndexes(v *TraverseAlterTableRedundantIndexes, r *R
 	if err := redundantIndexCheck.CheckRepeatColsWithDiffIndexes(); err != nil {
 		r.Summary = append(r.Summary, err.Error())
 	}
-	if err := redundantIndexCheck.CheckRedundantColsWithDiffIndexes(); err != nil {
-		r.Summary = append(r.Summary, err.Error())
-	}
+	// if err := redundantIndexCheck.CheckRedundantColsWithDiffIndexes(); err != nil {
+	// 	r.Summary = append(r.Summary, err.Error())
+	// }
 }
 
 // LogicAlterTableDisabledIndexes
