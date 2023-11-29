@@ -31,7 +31,7 @@ func (i *IndexPrefix) CheckUniquePrefix() error {
 	for _, key := range i.UniqueKeys {
 		if i.AuditConfig.CHECK_IDENTIFIER {
 			if ok := utils.IsMatchPattern(utils.NamePattern, key); !ok {
-				return fmt.Errorf("索引`%s`命名不符合要求,仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
+				return fmt.Errorf("索引`%s`命名不符合要求，仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
 			}
 		}
 		if len(key) == 0 {
@@ -42,7 +42,7 @@ func (i *IndexPrefix) CheckUniquePrefix() error {
 		}
 	}
 	if len(unMatchKeys) > 0 {
-		return fmt.Errorf("唯一索引前缀不符合要求,必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.UNQI_INDEX_PREFIX, i.Table)
+		return fmt.Errorf("唯一索引前缀不符合要求，必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.UNQI_INDEX_PREFIX, i.Table)
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (i *IndexPrefix) CheckSecondaryPrefix() error {
 	for _, key := range i.SecondaryKeys {
 		if i.AuditConfig.CHECK_IDENTIFIER {
 			if ok := utils.IsMatchPattern(utils.NamePattern, key); !ok {
-				return fmt.Errorf("索引`%s`命名不符合要求,仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
+				return fmt.Errorf("索引`%s`命名不符合要求，仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
 			}
 		}
 		if len(key) == 0 {
@@ -63,7 +63,7 @@ func (i *IndexPrefix) CheckSecondaryPrefix() error {
 		}
 	}
 	if len(unMatchKeys) > 0 {
-		return fmt.Errorf("二级索引前缀不符合要求,必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.SECONDARY_INDEX_PREFIX, i.Table)
+		return fmt.Errorf("二级索引前缀不符合要求，必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.SECONDARY_INDEX_PREFIX, i.Table)
 	}
 	return nil
 }
@@ -73,7 +73,7 @@ func (i *IndexPrefix) CheckFulltextPrefix() error {
 	for _, key := range i.FulltextKeys {
 		if i.AuditConfig.CHECK_IDENTIFIER {
 			if ok := utils.IsMatchPattern(utils.NamePattern, key); !ok {
-				return fmt.Errorf("索引`%s`命名不符合要求,仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
+				return fmt.Errorf("索引`%s`命名不符合要求，仅允许匹配正则`%s`[表`%s`]", key, utils.NamePattern, i.Table)
 			}
 		}
 		if len(key) == 0 {
@@ -84,7 +84,7 @@ func (i *IndexPrefix) CheckFulltextPrefix() error {
 		}
 	}
 	if len(unMatchKeys) > 0 {
-		return fmt.Errorf("全文索引前缀不符合要求,必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.FULLTEXT_INDEX_PREFIX, i.Table)
+		return fmt.Errorf("全文索引前缀不符合要求，必须以`%s`开头(不区分大小写)[表`%s`]", i.AuditConfig.FULLTEXT_INDEX_PREFIX, i.Table)
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ type IndexNumber struct {
 // 最多有N个二级索引,包括唯一索引
 func (i *IndexNumber) CheckSecondaryIndexesNum() error {
 	if i.Number > i.AuditConfig.MAX_INDEX_KEYS {
-		return fmt.Errorf("表`%s`最多允许定义%d个二级索引,当前二级索引个数为%d", i.Table, i.AuditConfig.MAX_INDEX_KEYS, i.Number)
+		return fmt.Errorf("表`%s`最多允许定义%d个二级索引，当前二级索引个数为%d", i.Table, i.AuditConfig.MAX_INDEX_KEYS, i.Number)
 	}
 	return nil
 }
@@ -115,12 +115,12 @@ func (i *IndexNumber) CheckPrimaryKeyColsNum() error {
 		if item.Index == "PrimaryKey" {
 			// 主键索引列数不能超过指定的个数
 			if item.Len > i.AuditConfig.PRIMARYKEY_MAX_KEY_PARTS {
-				return fmt.Errorf("表`%s`的主键索引`PRIMARY KEY`最多允许组成列数为%d,当前列数为%d", i.Table, i.AuditConfig.PRIMARYKEY_MAX_KEY_PARTS, item.Len)
+				return fmt.Errorf("表`%s`的主键索引`PRIMARY KEY`最多允许组成列数为%d，当前列数为%d", i.Table, i.AuditConfig.PRIMARYKEY_MAX_KEY_PARTS, item.Len)
 			}
 		} else {
 			// 二级索引的列数不能超过指定的个数,包括唯一索引
 			if item.Len > i.AuditConfig.SECONDARY_INDEX_MAX_KEY_PARTS {
-				return fmt.Errorf("表`%s`的二级索引`%s`最多允许组成列数为%d,当前列数为%d", i.Table, item.Index, i.AuditConfig.SECONDARY_INDEX_MAX_KEY_PARTS, item.Len)
+				return fmt.Errorf("表`%s`的二级索引`%s`最多允许组成列数为%d，当前列数为%d", i.Table, item.Index, i.AuditConfig.SECONDARY_INDEX_MAX_KEY_PARTS, item.Len)
 			}
 		}
 	}
@@ -128,9 +128,10 @@ func (i *IndexNumber) CheckPrimaryKeyColsNum() error {
 }
 
 // 检查冗余索引
+// is_drop：drop操作，is_add：add操作，is_meta：原表表结构
 type IndexColsMap struct {
 	Index string   // 索引
-	Tag   string   // 标记,值:is_drop/is_add
+	Tag   string   // 标记,值:is_drop/is_add/is_meta
 	Cols  []string // 组成索引的列
 }
 type RedundantIndex struct {
@@ -161,22 +162,69 @@ func (r *RedundantIndex) CheckRepeatCols() error {
 }
 
 func (r *RedundantIndex) CheckRepeatColsWithDiffIndexes() error {
-	// 查找重复的索引,即索引名不一样,但是定义的列一样,不区分大小写
+	// 查找重复的索引，即索引名不一样，但是定义的列一样，不区分大小写
 	// KEY idx_a_b (col1,col2),
 	// KEY idx_b (col1,col2),
-	idxCols := make(map[string]bool)
+	// 获取is_add
+	var isAddIdxCols []string
+	// 获取is_drop
+	var isDropIdxCols []string
+	// 获取is_meta
+	isMetaIdxCols := make(map[string]string)
 	for _, item := range r.IndexesCols {
-		// 查找重复的索引,即索引名不一样,但是定义的列一样,不区分大小写
-		// KEY idx_a_b (col1,col2),
-		// KEY idx_b (col1,col2),
-		if item.Tag == "is_drop" {
-			continue
+		if item.Tag == "is_add" {
+			isAddIdxCols = append(isAddIdxCols, item.Index)
 		}
-		valueJoin := strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
-		if !idxCols[valueJoin] {
-			idxCols[valueJoin] = true
-		} else {
-			return fmt.Errorf("表`%s`发现了重复定义的索引`%s`,已经存在定义列相同索引`%s`", r.Table, item.Index, strings.Join(item.Cols, ","))
+		if item.Tag == "is_drop" {
+			isDropIdxCols = append(isDropIdxCols, item.Index)
+		}
+		if item.Tag == "is_meta" {
+			isMetaIdxCols[item.Index] = strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
+		}
+	}
+	// 从is_meta数据中删除is_drop的数据
+	for _, item := range isDropIdxCols {
+		delete(isMetaIdxCols, item)
+	}
+	// 为create table语句
+	if len(isDropIdxCols) == 0 && len(isAddIdxCols) == 0 {
+		// 对map中的键进行分组
+		groups := make(map[string][]string)
+		for key, value := range isMetaIdxCols {
+			groups[value] = append(groups[value], key)
+		}
+		var result []string
+		for _, keys := range groups {
+			if len(keys) > 1 {
+				result = append(result, strings.Join(keys, "/"))
+			}
+		}
+		if len(result) > 0 {
+			return fmt.Errorf("表`%s`发现了重复定义的索引：%s", r.Table, strings.Join(result, ";"))
+		}
+	} else {
+		// 为alter table xxx add / drop index
+		for _, item := range r.IndexesCols {
+			// 查找重复的索引,即索引名不一样,但是定义的列一样,不区分大小写
+			// KEY idx_a_b (col1,col2),
+			// KEY idx_b (col1,col2),
+			if item.Tag == "is_add" {
+				found := false
+				var foundKey string
+				valueJoin := strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
+				for key, value := range isMetaIdxCols {
+					if value == valueJoin {
+						found = true
+						foundKey = key
+						break
+					}
+				}
+				if !found {
+					isMetaIdxCols[item.Index] = valueJoin
+				} else {
+					return fmt.Errorf("表`%s`发现了重复定义的索引：%s(%s)，请检查原始表结构", r.Table, foundKey, strings.Join(item.Cols, ", "))
+				}
+			}
 		}
 	}
 	return nil
@@ -184,7 +232,7 @@ func (r *RedundantIndex) CheckRepeatColsWithDiffIndexes() error {
 
 func (r *RedundantIndex) CheckRedundantColsWithDiffIndexes() error {
 	/*
-		查找冗余的索引,即索引名不一样,但是定义的列冗余,不区分大小写
+		查找冗余的索引，即索引名不一样，但是定义的列冗余，不区分大小写
 		KEY idx_a (col1),
 		KEY idx_b (col1,col2),
 		KEY idx_c (col1,col2,col3)
@@ -198,7 +246,7 @@ func (r *RedundantIndex) CheckRedundantColsWithDiffIndexes() error {
 			{IDX_STATUS_UPDATETIME  [i_status d_update_time]}
 		]
 	*/
-	var idxCols []string
+	// idxCols := make(map[string]string)
 
 	/*
 		解决冗余索引时，当指定drop冗余索引时，允许通过
@@ -206,33 +254,57 @@ func (r *RedundantIndex) CheckRedundantColsWithDiffIndexes() error {
 		添加索引：
 			ALTER TABLE `tbl1` ADD UNIQUE uniq_bb(`a`,`b`,`c`),DROP INDEX `idx_aa`;
 	*/
-	var IsDropIndexes []string
-	// 找出is_drop的索引操作
+	// 获取is_drop
+	var isDropIdxCols []string
+	// 获取is_meta
+	isMetaIdxCols := make(map[string]string)
+	isAddIdxCols := make(map[string]string)
+
 	for _, item := range r.IndexesCols {
+		if item.Tag == "is_add" {
+			isAddIdxCols[item.Index] = strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
+		}
 		if item.Tag == "is_drop" {
-			IsDropIndexes = append(IsDropIndexes, item.Index)
+			isDropIdxCols = append(isDropIdxCols, item.Index)
+		}
+		if item.Tag == "is_meta" {
+			isMetaIdxCols[item.Index] = strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
 		}
 	}
-	// 从r.IndexesCols中移除is_drop的索引名
-	for _, item := range r.IndexesCols {
-		if utils.IsContain(IsDropIndexes, item.Index) {
-			break
-		}
-		idxCols = append(idxCols, strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar)))
+	// 从is_meta数据中删除is_drop的数据
+	for _, item := range isDropIdxCols {
+		delete(isMetaIdxCols, item)
 	}
-	// 检查是否存在冗余索引
-	for _, k := range idxCols {
-		for _, k1 := range idxCols {
-			if k == k1 {
-				continue
+
+	// 为create table语句
+	if len(isDropIdxCols) == 0 && len(isAddIdxCols) == 0 {
+		var result []string
+		for k, v := range isMetaIdxCols {
+			for k1, v1 := range isMetaIdxCols {
+				if v != v1 {
+					if strings.HasPrefix(v, v1) && utils.IsSubKey(v, v1) {
+						result = append(result, strings.Join([]string{k, k1}, "/"))
+					}
+				}
 			}
-			if strings.HasPrefix(k, k1) && utils.IsSubKey(k, k1) {
-				return fmt.Errorf("表`%s`发现了冗余索引,冗余索引的字段组合为(%s)/(%s)【您可以增加一个drop原冗余索引的操作】",
-					r.Table,
-					strings.Replace(k, utils.KeyJoinChar, ",", -1),
-					strings.Replace(k1, utils.KeyJoinChar, ",", -1),
-				)
+		}
+		if len(result) > 0 {
+			return fmt.Errorf("表`%s`发现了冗余索引，冗余索引的字段组合为%s", r.Table, strings.Join(result, ", "))
+		}
+	} else {
+		// 为alter table xxx add / drop index
+		var result []string
+		for k, v := range isAddIdxCols {
+			for k1, v1 := range isMetaIdxCols {
+				if v != v1 {
+					if strings.HasPrefix(v, v1) && utils.IsSubKey(v, v1) {
+						result = append(result, strings.Join([]string{k, k1}, "/"))
+					}
+				}
 			}
+		}
+		if len(result) > 0 {
+			return fmt.Errorf("表`%s`发现了冗余索引，冗余索引的字段组合为%s", r.Table, strings.Join(result, ", "))
 		}
 	}
 	return nil
@@ -311,7 +383,7 @@ func (l *LargePrefix) Check(kv *kv.KVCache) error {
 
 		logger.AppLog.Debug(fmt.Sprintf("maxSumLength:%d, indexMaxLength:%d", maxSumLength, indexMaxLength))
 		if maxSumLength > indexMaxLength {
-			return fmt.Errorf("表`%s`的索引`%s`超出了innodb-large-prefix限制,当前索引长度为%d字节,最大限制为%d字节【例如:可使用前缀索引,如:Field(length)】", l.Table, i.Name, maxSumLength, indexMaxLength)
+			return fmt.Errorf("表`%s`的索引`%s`超出了innodb-large-prefix限制，当前索引长度为%d字节，最大限制为%d字节【例如可使用前缀索引，如：Field(length)】", l.Table, i.Name, maxSumLength, indexMaxLength)
 		}
 	}
 	return nil

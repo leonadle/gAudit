@@ -90,7 +90,7 @@ func (c *Checker) Parse() error {
 		return fmt.Errorf("Parse Warning: %s", utils.ErrsJoin("; ", warns))
 	}
 	if err != nil {
-		return fmt.Errorf("sql解析错误:%s", err.Error())
+		return fmt.Errorf("sql解析错误：%s", err.Error())
 	}
 	return nil
 }
@@ -106,7 +106,6 @@ func (e *ExtractTables) checkSelectItem(node ast.ResultSetNode) {
 	if node == nil {
 		return
 	}
-	// fmt.Println("类型: ", reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *ast.SelectStmt:
 		e.checkSubSelectItem(n)

@@ -42,7 +42,7 @@ func (e Explain) ConvertToExplain() string {
 func (e *Explain) Get(EXPLAIN_RULE string) (int, error) {
 	explainSQL := e.ConvertToExplain()
 	if !strings.HasPrefix(explainSQL, "EXPLAIN") {
-		return 0, errors.New("Explain语句未检测到以`EXPLAIN`开头,请联系管理员")
+		return 0, errors.New("Explain语句未检测到以`EXPLAIN`开头，请联系管理员")
 	}
 	rows, err := e.DB.Query(explainSQL)
 	if err != nil {
@@ -52,6 +52,10 @@ func (e *Explain) Get(EXPLAIN_RULE string) (int, error) {
 	var data []ExplainOutput
 	err = mapstructure.WeakDecode(rows, &data)
 	if err != nil {
+		// 处理多表删除未匹配到行返回rows=NULL的情况
+		if strings.Contains(err.Error(), "strconv.ParseInt: parsing \"NULL\"") {
+			return 0, nil
+		}
 		return 0, err
 	}
 	// 获取db版本
