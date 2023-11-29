@@ -41,6 +41,7 @@ func LogicRenameTable(v *TraverseRenameTable, r *Rule) {
 	}
 	// 新表不能存在
 	for _, t := range v.tables {
+		// 支持语法 rename table test to test_old, test_new to test
 		if len(oldTables) > 0 && utils.IsContain(oldTables, t.NewTable) {
 			continue
 		}

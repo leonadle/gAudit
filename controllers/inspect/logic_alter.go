@@ -374,7 +374,14 @@ func LogicAlterTableRedundantIndexes(v *TraverseAlterTableRedundantIndexes, r *R
 		(audit.TiStmt[0]).Accept(vAudit)
 	}
 	v.Redundant.Cols = vAudit.Redundant.Cols
+<<<<<<< HEAD
 	// 将源表以及alter语句涉及的索引、索引列信息一起赋予给结构体
+=======
+	// 用于检查alter table xxx add `col1` xxx,add index idx_col1(`col1`)
+	v.Redundant.Cols = append(v.Redundant.Cols, v.AddCols...)
+	// 用于检查alter table xxx drop `col2`,add index idx_col2(`col2`);
+	v.Redundant.Cols = utils.RemoveElements(v.Redundant.Cols, v.DropCols)
+>>>>>>> origin/main
 	v.Redundant.Indexes = append(v.Redundant.Indexes, vAudit.Redundant.Indexes...)
 	v.Redundant.IndexesCols = append(v.Redundant.IndexesCols, vAudit.Redundant.IndexesCols...)
 	var redundantIndexCheck process.RedundantIndex = v.Redundant

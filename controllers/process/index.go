@@ -144,6 +144,11 @@ type RedundantIndex struct {
 func (r *RedundantIndex) CheckRepeatCols() error {
 	// 索引中的列,不能重复,不区分大小写,建索引时,指定的列必须存在
 	// KEY idx_a (col1,col2,col1),
+	fmt.Println(r.Table)
+	fmt.Println(r.Cols)
+	fmt.Println(r.Indexes)
+	fmt.Println(r.IndexesCols)
+
 	for _, item := range r.IndexesCols {
 		idxColsDefDup := make(map[string]bool)
 		for _, col := range item.Cols {
@@ -271,6 +276,7 @@ func (r *RedundantIndex) CheckRedundantColsWithDiffIndexes() error {
 			isMetaIdxCols[item.Index] = strings.ToLower(strings.Join(item.Cols, utils.KeyJoinChar))
 		}
 	}
+
 	// 从is_meta数据中删除is_drop的数据
 	for _, item := range isDropIdxCols {
 		delete(isMetaIdxCols, item)
