@@ -144,11 +144,6 @@ type RedundantIndex struct {
 func (r *RedundantIndex) CheckRepeatCols() error {
 	// 索引中的列,不能重复,不区分大小写,建索引时,指定的列必须存在
 	// KEY idx_a (col1,col2,col1),
-	fmt.Println(r.Table)
-	fmt.Println(r.Cols)
-	fmt.Println(r.Indexes)
-	fmt.Println(r.IndexesCols)
-
 	for _, item := range r.IndexesCols {
 		idxColsDefDup := make(map[string]bool)
 		for _, col := range item.Cols {
