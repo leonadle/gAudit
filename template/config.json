@@ -78,6 +78,8 @@
     "DISABLE_ON_DUPLICATE": true,
     "MAX_AFFECTED_ROWS": 1000,
     "MAX_INSERT_ROWS": 100,
+    "DML_MUST_SPECIFY_COLUMNS": true,
+    "ENABLE_CROSS_DB_AUDIT": false,
     "DISABLE_AUDIT_DML_TABLES": [
         {
             "DB": "test",

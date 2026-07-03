@@ -51,6 +51,13 @@ func removeElement(data, toBeRemoved []string) []string {
 	return result
 }
 
+func tableNameWithSchema(table *ast.TableName) string {
+	if table == nil {
+		return ""
+	}
+	return utils.FormatTableName(table.Schema.L, table.Name.L)
+}
+
 // 返回数据
 type ReturnData struct {
 	Tables []string `json:"tables"` // 表名
@@ -115,8 +122,7 @@ func (e *ExtractTables) checkSelectItem(node ast.ResultSetNode) {
 	case *ast.TableSource:
 		e.checkSelectItem(n.Source)
 	case *ast.TableName:
-		// e.Tables = append(e.Tables, n.Name.L)
-		e.Tables = append(e.Tables, n.Name.O)
+		e.Tables = append(e.Tables, tableNameWithSchema(n))
 	}
 }
 
@@ -224,24 +230,24 @@ func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
 		c.Tables = append(c.Tables, e.Tables...)
 	case *ast.CreateTableStmt:
 		c.setType("CREATE TABLE")
-		c.Tables = append(c.Tables, stmt.Table.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
 	case *ast.CreateViewStmt:
 		c.setType("CREATE VIEW")
-		c.Tables = append(c.Tables, stmt.ViewName.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.ViewName))
 	case *ast.CreateIndexStmt:
 		c.setType("CREATE INDEX")
-		c.Tables = append(c.Tables, stmt.Table.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
 	case *ast.AlterTableStmt:
 		c.setType("ALTER TABLE")
-		c.Tables = append(c.Tables, stmt.Table.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
 	case *ast.DropIndexStmt:
 		c.setType("DROP INDEX")
-		c.Tables = append(c.Tables, stmt.Table.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
 	case *ast.RenameTableStmt:
 		c.setType("RENAME TABLE")
 		for _, t := range stmt.TableToTables {
-			c.Tables = append(c.Tables, t.OldTable.Name.L)
-			c.Tables = append(c.Tables, t.NewTable.Name.L)
+			c.Tables = append(c.Tables, tableNameWithSchema(t.OldTable))
+			c.Tables = append(c.Tables, tableNameWithSchema(t.NewTable))
 		}
 	case *ast.DropTableStmt:
 		if stmt.IsView {
@@ -250,11 +256,11 @@ func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
 			c.setType("DROP TABLE")
 		}
 		for _, t := range stmt.Tables {
-			c.Tables = append(c.Tables, t.Name.L)
+			c.Tables = append(c.Tables, tableNameWithSchema(t))
 		}
 	case *ast.TruncateTableStmt:
 		c.setType("TRUNCATE TABLE")
-		c.Tables = append(c.Tables, stmt.Table.Name.L)
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
 	}
 	return in, false
 }

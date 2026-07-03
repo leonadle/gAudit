@@ -41,6 +41,20 @@ func TestChecker_Extract(t *testing.T) {
 			},
 		},
 		{
+			name: "跨库表名提取",
+			form: forms.ExtractTablesForm{
+				SqlText:   "select * from `test02`.`mytest`",
+				RequestID: "78c25a06-3b34-4ecb-b9dd-7197078873c7",
+			},
+			wantRes: []ReturnData{
+				{
+					Tables: []string{"test02.mytest"},
+					Type:   "SELECT",
+					Query:  "select * from `test02`.`mytest`",
+				},
+			},
+		},
+		{
 			name: "UNION查询",
 			form: forms.ExtractTablesForm{
 				SqlText:   "select id,name from t1 union select id,name from t2 union select id,name from (select * from t3 where id > 1) as xx",
@@ -182,8 +196,8 @@ func TestChecker_Extract(t *testing.T) {
 			wantRes: []ReturnData{
 				{
 					Tables: []string{
-						"tables",
-						"columns",
+						"information_schema.tables",
+						"information_schema.columns",
 					},
 					Type:  "SELECT",
 					Query: "select t.table_schema,t.table_name,engine from information_schema.tables t inner join information_schema.columns c on t.table_schema=c.table_schema and t.table_name=c.table_name group by t.table_schema,t.table_name;",
@@ -320,7 +334,7 @@ func TestChecker_Extract(t *testing.T) {
 			wantRes: []ReturnData{
 				{
 					Tables: []string{
-						"v1",
+						"db1.v1",
 					},
 					// 因为create table和create view已经区分出来了, 所以drop也应该区分
 					Type:  "DROP VIEW",

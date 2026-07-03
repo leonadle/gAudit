@@ -81,6 +81,10 @@ func AlterTableRules() []Rule {
 			CheckFunc: (*Rule).RuleAlterTableChangeColOptions,
 		},
 		{
+			Hint:      "AlterTable#AFTER列位置检查",
+			CheckFunc: (*Rule).RuleAlterTableColumnPosition,
+		},
+		{
 			Hint:      "AlterTable#RenameIndex检查",
 			CheckFunc: (*Rule).RuleAlterTableRenameIndex,
 		},
@@ -216,6 +220,13 @@ func (r *Rule) RuleAlterTableChangeColOptions(tistmt *ast.StmtNode) {
 	v := &TraverseAlterTableChangeColOptions{}
 	(*tistmt).Accept(v)
 	LogicAlterTableChangeColOptions(v, r)
+}
+
+// RuleAlterTableColumnPosition
+func (r *Rule) RuleAlterTableColumnPosition(tistmt *ast.StmtNode) {
+	v := &TraverseAlterTableColumnPosition{}
+	(*tistmt).Accept(v)
+	LogicAlterTableColumnPosition(v, r)
 }
 
 // RuleAlterTableRenameIndex

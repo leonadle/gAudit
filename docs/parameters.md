@@ -66,9 +66,11 @@
     - [EXPLAIN_RULE](#explain_rule)
     - [MAX_AFFECTED_ROWS](#max_affected_rows)
     - [MAX_INSERT_ROWS](#max_insert_rows)
+    - [DML_MUST_SPECIFY_COLUMNS](#dml_must_specify_columns)
     - [DISABLE_REPLACE](#disable_replace)
     - [DISABLE_INSERT_INTO_SELECT](#disable_insert_into_select)
     - [DISABLE_ON_DUPLICATE](#disable_on_duplicate)
+    - [ENABLE_CROSS_DB_AUDIT](#enable_cross_db_audit)
     - [DISABLE_AUDIT_DML_TABLES](#disable_audit_dml_tables)
     - [DISABLE_AUDIT_DDL_TABLES](#disable_audit_ddl_tables)
 ## 审核参数
@@ -405,6 +407,11 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 描述: 一次最多允许insert的行, eg: insert into tbl(col,...) values(row1), (row2)...
 默认值: 100
 
+#### DML_MUST_SPECIFY_COLUMNS
+描述: INSERT/REPLACE语句是否必须指定列名
+默认值: true
+可选值: true/false
+
 #### DISABLE_REPLACE
 描述: 是否禁用replace语句
 默认值: true
@@ -418,6 +425,11 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 #### DISABLE_ON_DUPLICATE
 描述: 是否禁止insert on duplicate语法
 默认值: true
+可选值: true/false
+
+#### ENABLE_CROSS_DB_AUDIT
+描述: 是否允许审核显式跨库对象，如`db.table`
+默认值: false
 可选值: true/false
 
 #### DISABLE_AUDIT_DML_TABLES
@@ -462,4 +474,3 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
     }
 ]
 ```
-

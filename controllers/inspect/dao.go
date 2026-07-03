@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sqlSyntaxAudit/common/kv"
 	"sqlSyntaxAudit/common/utils"
+	"sqlSyntaxAudit/config"
 	"sqlSyntaxAudit/controllers/parser"
 	"strconv"
 	"strings"
@@ -19,13 +20,25 @@ import (
 )
 
 // ShowCreateTable
-func ShowCreateTable(table string, db *utils.DB, kv *kv.KVCache) (data interface{}, err error) {
+func checkCrossDBAudit(table string, db *utils.DB, auditConfig *config.AuditConfiguration) error {
+	if auditConfig != nil && !auditConfig.ENABLE_CROSS_DB_AUDIT && utils.IsExplicitCrossDB(table, db.Database) {
+		return fmt.Errorf("不允许跨库审核[表%s]", utils.DisplayTableName(table))
+	}
+	return nil
+}
+
+// ShowCreateTable
+func ShowCreateTable(table string, db *utils.DB, kv *kv.KVCache, auditConfig *config.AuditConfiguration) (data interface{}, err error) {
+	if err := checkCrossDBAudit(table, db, auditConfig); err != nil {
+		return nil, err
+	}
 	// 返回表结构
-	data = kv.Get(table)
+	cacheKey := utils.TableCacheKey(table, db.Database)
+	data = kv.Get(cacheKey)
 	if data != nil {
 		return data, nil
 	}
-	query := fmt.Sprintf("show create table `%s`", table)
+	query := fmt.Sprintf("show create table %s", utils.QuoteTableName(table))
 	result, err := db.Query(query)
 	if err != nil {
 		return nil, err
@@ -50,14 +63,17 @@ func ShowCreateTable(table string, db *utils.DB, kv *kv.KVCache) (data interface
 	if err != nil {
 		return nil, fmt.Errorf("SQL语法解析错误：%s", err.Error())
 	}
-	kv.Put(table, data)
+	kv.Put(cacheKey, data)
 	return data, nil
 }
 
 // descTable
-func DescTable(table string, db *utils.DB) (error, string) {
+func DescTable(table string, db *utils.DB, auditConfig *config.AuditConfiguration) (error, string) {
+	if err := checkCrossDBAudit(table, db, auditConfig); err != nil {
+		return err, err.Error()
+	}
 	// 检查表是否存在，适用于确认当前实例当前库的表
-	err := db.Execute(fmt.Sprintf("desc `%s`", table))
+	err := db.Execute(fmt.Sprintf("desc %s", utils.QuoteTableName(table)))
 	if me, ok := err.(*mysqlapi.MySQLError); ok {
 		if me.Number == 1146 {
 			// 表不存在
@@ -70,9 +86,20 @@ func DescTable(table string, db *utils.DB) (error, string) {
 }
 
 // verifyTable
-func VerifyTable(table string, db *utils.DB) (error, string) {
+func VerifyTable(table string, db *utils.DB, auditConfig *config.AuditConfiguration) (error, string) {
+	if err := checkCrossDBAudit(table, db, auditConfig); err != nil {
+		return err, err.Error()
+	}
+	schema, tableName := utils.SplitTableName(table)
+	if schema == "" {
+		schema = db.Database
+	}
 	// 通过information_schema.tables检查表是否存在，适用于确认当前实例跨库的表
-	result, err := db.Query(fmt.Sprintf("select count(*) as count from information_schema.tables where table_name='%s'", table))
+	result, err := db.Query(fmt.Sprintf(
+		"select count(*) as count from information_schema.tables where table_schema=%s and table_name=%s",
+		utils.QuoteSQLString(schema),
+		utils.QuoteSQLString(tableName),
+	))
 	if err != nil {
 		return err, fmt.Sprintf("执行SQL失败,主机:%s:%d,错误:%s", db.Host, db.Port, err.Error())
 	}

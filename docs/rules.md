@@ -141,10 +141,11 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 | DISABLE_ON_DUPLICATE       | 是否禁止使用insert into on duplicate语法   |
 | DML_MUST_HAVE_WHERE        | DML语句必须要有where条件                   |
 | DISABLE_REPLACE            | 是否允许使用replace语句                    |
-| N/A                        | insert/replace语句必须指定列名             |
+| DML_MUST_SPECIFY_COLUMNS   | insert/replace语句必须指定列名             |
 | MAX_INSERT_ROWS            | INSERT语句单次最多允许插入的行数           |
 | DML_DISABLE_LIMIT          | delete/update语句是否能有LIMIT子句         |
 | DML_DISABLE_ORDERBY        | delete/update语句是否能有orderby子句       |
 | DML_DISABLE_SUBQUERY       | delete/update语句是否能有子查询            |
 | CHECK_DML_JOIN_WITH_ON     | delete/update语句的JOIN操作是否要有ON条件  |
 | MAX_AFFECTED_ROWS          | DML语句执行计划最大影响行数                |
+| ENABLE_CROSS_DB_AUDIT      | 是否允许审核显式跨库对象                   |

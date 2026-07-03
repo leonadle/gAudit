@@ -99,9 +99,11 @@ type AuditConfiguration struct {
 	EXPLAIN_RULE               string // explain判断受影响行数时使用的规则("first", "max")。 "first": 使用第一行的explain结果作为受影响行数, "max": 使用explain结果中的最大值作为受影响行数
 	MAX_AFFECTED_ROWS          int    // 最大影响行数，默认100
 	MAX_INSERT_ROWS            int    // 一次最多允许insert的行, eg: insert into tbl(col,...) values(row1), (row2)...
+	DML_MUST_SPECIFY_COLUMNS   bool   // INSERT/REPLACE语句是否必须指定列名
 	DISABLE_REPLACE            bool   // 是否禁用replace语句
 	DISABLE_INSERT_INTO_SELECT bool   // 是否禁用insert/replace into select语法
 	DISABLE_ON_DUPLICATE       bool   // 是否禁止insert on duplicate语法
+	ENABLE_CROSS_DB_AUDIT      bool   // 是否允许审核显式跨库对象
 	// 禁止语法审核的表
 	DISABLE_AUDIT_DML_TABLES []DisableTablesAudit // 禁止指定的表的DML语句进行审核
 	DISABLE_AUDIT_DDL_TABLES []DisableTablesAudit // 禁止指定的表的DDL语句进行审核
@@ -176,9 +178,11 @@ func newAuditConfiguration() *AuditConfiguration {
 		EXPLAIN_RULE:                         "first",
 		MAX_AFFECTED_ROWS:                    100,
 		MAX_INSERT_ROWS:                      100,
+		DML_MUST_SPECIFY_COLUMNS:             true,
 		DISABLE_REPLACE:                      true,
 		DISABLE_INSERT_INTO_SELECT:           true,
 		DISABLE_ON_DUPLICATE:                 true,
+		ENABLE_CROSS_DB_AUDIT:                false,
 		DISABLE_AUDIT_DML_TABLES:             []DisableTablesAudit{},
 		DISABLE_AUDIT_DDL_TABLES:             []DisableTablesAudit{},
 	}

@@ -100,7 +100,7 @@ func (c *TraverseDMLInsertWithColumns) CheckSelectItem(node ast.ResultSetNode) {
 	case *ast.TableSource:
 		c.CheckSelectItem(n.Source)
 	case *ast.TableName:
-		c.Table = n.Name.String()
+		c.Table = tableNameWithSchema(n)
 	}
 }
 

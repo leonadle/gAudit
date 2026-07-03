@@ -20,7 +20,7 @@ type TraverseAlterTableIsExist struct {
 
 func (c *TraverseAlterTableIsExist) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 	}
 	return in, false
 }
@@ -37,7 +37,7 @@ type TraverseAlterTiDBMerge struct {
 
 func (c *TraverseAlterTiDBMerge) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		c.SpecsLen = len(stmt.Specs)
 	}
 	return in, false
@@ -57,7 +57,7 @@ type TraverseAlterTableDropColsOrIndexes struct {
 
 func (c *TraverseAlterTableDropColsOrIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableDropColumn:
@@ -85,7 +85,7 @@ type TraverseAlterTableDropTiDBColWithCoveredIndex struct {
 
 func (c *TraverseAlterTableDropTiDBColWithCoveredIndex) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableDropColumn:
@@ -109,7 +109,7 @@ type TraverseAlterTableOptions struct {
 
 func (c *TraverseAlterTableOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableOption:
@@ -151,7 +151,7 @@ type TraverseAlterTableColCharset struct {
 
 func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns, ast.AlterTableModifyColumn, ast.AlterTableChangeColumn:
@@ -169,7 +169,7 @@ func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 						c.Cols = append(
 							c.Cols,
 							process.ColumnCharset{
-								Table:   stmt.Table.Name.String(),
+								Table:   tableNameWithSchema(stmt.Table),
 								Column:  col.Name.Name.O,
 								Tp:      col.Tp.Tp,
 								Charset: colCharset,
@@ -197,7 +197,7 @@ type TraverseAlterTableAddColOptions struct {
 
 func (c *TraverseAlterTableAddColOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns:
@@ -261,7 +261,7 @@ type TraverseAlterTableAddPrimaryKey struct {
 
 func (c *TraverseAlterTableAddPrimaryKey) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			// add `id` int(10) unsigned primary key AUTO_INCREMENT"
@@ -304,7 +304,7 @@ type TraverseAlterTableAddColRepeatDefine struct {
 
 func (c *TraverseAlterTableAddColRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns:
@@ -331,8 +331,8 @@ type TraverseAlterTableAddIndexPrefix struct {
 
 func (c *TraverseAlterTableAddIndexPrefix) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Prefix.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Prefix.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			// 前缀
 			if spec.Tp == ast.AlterTableAddConstraint {
@@ -364,8 +364,8 @@ type TraverseAlterTableAddIndexCount struct {
 
 func (c *TraverseAlterTableAddIndexCount) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Number.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Number.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			// 索引数量
 			if spec.Tp == ast.AlterTableAddConstraint {
@@ -396,7 +396,7 @@ type TraverseAlterTableAddConstraint struct {
 
 func (c *TraverseAlterTableAddConstraint) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableAddConstraint {
 				c.IsMatch++
@@ -422,7 +422,7 @@ type TraverseAlterTableAddIndexRepeatDefine struct {
 
 func (c *TraverseAlterTableAddIndexRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableAddConstraint {
 				c.IsMatch++
@@ -451,8 +451,8 @@ type TraverseAlterTableRedundantIndexes struct {
 
 func (c *TraverseAlterTableRedundantIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Redundant.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Redundant.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns:
@@ -494,8 +494,8 @@ type TraverseAlterTableDisabledIndexes struct {
 
 func (c *TraverseAlterTableDisabledIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.DisabledIndexes.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.DisabledIndexes.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			// 索引数量
 			if spec.Tp == ast.AlterTableAddConstraint {
@@ -524,7 +524,7 @@ type TraverseAlterTableModifyColOptions struct {
 
 func (c *TraverseAlterTableModifyColOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableModifyColumn {
 				c.IsMatch++
@@ -586,7 +586,7 @@ type TraverseAlterTableChangeColOptions struct {
 
 func (c *TraverseAlterTableChangeColOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableChangeColumn {
 				c.IsMatch++
@@ -640,6 +640,48 @@ func (c *TraverseAlterTableChangeColOptions) Leave(in ast.Node) (ast.Node, bool)
 	return in, true
 }
 
+type AlterTableColumnPositionOp struct {
+	Type        ast.AlterTableType
+	NewColumns  []string
+	OldColumn   string
+	AfterColumn string
+}
+
+// TraverseAlterTableColumnPosition checks AFTER column references in ALTER specs.
+type TraverseAlterTableColumnPosition struct {
+	Table   string
+	IsMatch int
+	Ops     []AlterTableColumnPositionOp
+}
+
+func (c *TraverseAlterTableColumnPosition) Enter(in ast.Node) (ast.Node, bool) {
+	if stmt, ok := in.(*ast.AlterTableStmt); ok {
+		c.Table = tableNameWithSchema(stmt.Table)
+		for _, spec := range stmt.Specs {
+			switch spec.Tp {
+			case ast.AlterTableAddColumns, ast.AlterTableModifyColumn, ast.AlterTableChangeColumn:
+				op := AlterTableColumnPositionOp{Type: spec.Tp}
+				for _, col := range spec.NewColumns {
+					op.NewColumns = append(op.NewColumns, col.Name.Name.O)
+				}
+				if spec.OldColumnName != nil {
+					op.OldColumn = spec.OldColumnName.Name.O
+				}
+				if spec.Position != nil && spec.Position.Tp == ast.ColumnPositionAfter && spec.Position.RelativeColumn != nil {
+					c.IsMatch++
+					op.AfterColumn = spec.Position.RelativeColumn.Name.O
+				}
+				c.Ops = append(c.Ops, op)
+			}
+		}
+	}
+	return in, false
+}
+
+func (c *TraverseAlterTableColumnPosition) Leave(in ast.Node) (ast.Node, bool) {
+	return in, true
+}
+
 // TraverseAlterTableRenameIndex
 type TraverseAlterTableRenameIndex struct {
 	Table   string // 表名
@@ -652,7 +694,7 @@ type TraverseAlterTableRenameIndex struct {
 
 func (c *TraverseAlterTableRenameIndex) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableRenameIndex {
 				c.IsMatch++
@@ -679,11 +721,11 @@ type TraverseAlterTableRenameTblName struct {
 
 func (c *TraverseAlterTableRenameTblName) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableRenameTable {
 				c.IsMatch++
-				c.NewTblName = spec.NewTable.Name.O
+				c.NewTblName = tableNameWithSchema(spec.NewTable)
 			}
 		}
 	}
@@ -704,7 +746,7 @@ type TraverseAlterTableShowCreateTableGetCols struct {
 
 func (c *TraverseAlterTableShowCreateTableGetCols) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		// 获取所有的列
 		for _, col := range stmt.Cols {
 			c.Cols = append(c.Cols, col.Name.Name.O)
@@ -740,7 +782,7 @@ type TraverseAlterTableInnodbLargePrefix struct {
 
 func (c *TraverseAlterTableInnodbLargePrefix) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.LargePrefix.Table = stmt.Table.Name.String()
+		c.LargePrefix.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddConstraint:
@@ -774,7 +816,7 @@ type TraverseAlterTableRowSizeTooLarge struct {
 
 func (c *TraverseAlterTableRowSizeTooLarge) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns, ast.AlterTableModifyColumn, ast.AlterTableChangeColumn:

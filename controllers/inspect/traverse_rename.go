@@ -26,8 +26,8 @@ func (c *TraverseRenameTable) Enter(in ast.Node) (ast.Node, bool) {
 		c.IsMatch++
 		for _, t := range stmt.TableToTables {
 			c.tables = append(c.tables, RenameTable{
-				OldTable: t.OldTable.Name.String(),
-				NewTable: t.NewTable.Name.String(),
+				OldTable: tableNameWithSchema(t.OldTable),
+				NewTable: tableNameWithSchema(t.NewTable),
 			})
 		}
 	}

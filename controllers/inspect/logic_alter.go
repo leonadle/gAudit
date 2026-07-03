@@ -12,21 +12,27 @@ import (
 	"sqlSyntaxAudit/config"
 	"sqlSyntaxAudit/controllers/process"
 	"strings"
+
+	"github.com/pingcap/tidb/parser/ast"
 )
 
 // LogicAlterTableIsExist
 func LogicAlterTableIsExist(v *TraverseAlterTableIsExist, r *Rule) {
 	// 检查表是否存在，如果表不存在，skip下面的检查
 	r.MergeAlter = v.Table
-	if err, msg := DescTable(v.Table, r.DB); err != nil {
+	if err, msg := DescTable(v.Table, r.DB, r.AuditConfig); err != nil {
 		r.Summary = append(r.Summary, msg)
 		r.IsSkipNextStep = true
 	}
 	// 禁止审核指定的表
 	if len(r.AuditConfig.DISABLE_AUDIT_DDL_TABLES) > 0 {
 		for _, item := range r.AuditConfig.DISABLE_AUDIT_DDL_TABLES {
-			if item.DB == r.DB.Database && utils.IsContain(item.Tables, v.Table) {
-				r.Summary = append(r.Summary, fmt.Sprintf("表`%s`.`%s`被限制进行DDL语法审核，原因：%s", r.DB.Database, v.Table, item.Reason))
+			schema, tableName := utils.SplitTableName(v.Table)
+			if schema == "" {
+				schema = r.DB.Database
+			}
+			if item.DB == schema && utils.IsContain(item.Tables, tableName) {
+				r.Summary = append(r.Summary, fmt.Sprintf("表`%s`.`%s`被限制进行DDL语法审核，原因：%s", schema, tableName, item.Reason))
 				r.IsSkipNextStep = true
 			}
 		}
@@ -52,7 +58,7 @@ func LogicAlterTableDropColsOrIndexes(v *TraverseAlterTableDropColsOrIndexes, r 
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -113,7 +119,7 @@ func LogicAlterTableDropTiDBColWithCoveredIndex(v *TraverseAlterTableDropTiDBCol
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -207,7 +213,7 @@ func LogicAlterTableAddPrimaryKey(v *TraverseAlterTableAddPrimaryKey, r *Rule) {
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -237,7 +243,7 @@ func LogicAlterTableAddColRepeatDefine(v *TraverseAlterTableAddColRepeatDefine, 
 
 	// 查找重复的列名
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -292,7 +298,7 @@ func LogicAlterTableAddIndexCount(v *TraverseAlterTableAddIndexCount, r *Rule) {
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -335,7 +341,7 @@ func LogicAlterTableAddIndexRepeatDefine(v *TraverseAlterTableAddIndexRepeatDefi
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -366,7 +372,7 @@ func LogicAlterTableRedundantIndexes(v *TraverseAlterTableRedundantIndexes, r *R
 	// 检查索引,建索引时,指定的列必须存在、索引中的列,不能重复、索引名不能重复
 	// 不能有重复的索引,包括(索引名不同,字段相同；冗余索引,如(a),(a,b))
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -405,7 +411,7 @@ func LogicAlterTableDisabledIndexes(v *TraverseAlterTableDisabledIndexes, r *Rul
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -434,7 +440,7 @@ func LogicAlterTableModifyColOptions(v *TraverseAlterTableModifyColOptions, r *R
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -496,7 +502,7 @@ func LogicAlterTableChangeColOptions(v *TraverseAlterTableChangeColOptions, r *R
 	}
 	r.MergeAlter = v.Table
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -565,6 +571,62 @@ func LogicAlterTableChangeColOptions(v *TraverseAlterTableChangeColOptions, r *R
 	}
 }
 
+func removeColumnIgnoreCase(cols []string, col string) []string {
+	result := make([]string, 0, len(cols))
+	for _, item := range cols {
+		if !strings.EqualFold(item, col) {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func appendColumnIfMissing(cols []string, col string) []string {
+	if col != "" && !utils.IsContain(cols, col) {
+		return append(cols, col)
+	}
+	return cols
+}
+
+// LogicAlterTableColumnPosition
+func LogicAlterTableColumnPosition(v *TraverseAlterTableColumnPosition, r *Rule) {
+	if v.IsMatch == 0 {
+		return
+	}
+	r.MergeAlter = v.Table
+
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
+	if err != nil {
+		r.Summary = append(r.Summary, err.Error())
+		return
+	}
+	vAudit := &TraverseAlterTableShowCreateTableGetCols{}
+	switch audit := audit.(type) {
+	case *config.Audit:
+		(audit.TiStmt[0]).Accept(vAudit)
+	}
+
+	knownCols := append([]string{}, vAudit.Cols...)
+	for _, op := range v.Ops {
+		if op.AfterColumn != "" && !utils.IsContain(knownCols, op.AfterColumn) {
+			r.Summary = append(r.Summary, fmt.Sprintf("列`%s`不存在[表`%s`]", op.AfterColumn, v.Table))
+		}
+		switch op.Type {
+		case ast.AlterTableAddColumns:
+			for _, col := range op.NewColumns {
+				knownCols = appendColumnIfMissing(knownCols, col)
+			}
+		case ast.AlterTableChangeColumn:
+			if utils.IsContain(knownCols, op.OldColumn) {
+				knownCols = removeColumnIgnoreCase(knownCols, op.OldColumn)
+				for _, col := range op.NewColumns {
+					knownCols = appendColumnIfMissing(knownCols, col)
+				}
+			}
+		}
+	}
+}
+
 // LogicAlterTableRenameIndex
 func LogicAlterTableRenameIndex(v *TraverseAlterTableRenameIndex, r *Rule) {
 	if v.IsMatch == 0 {
@@ -589,7 +651,7 @@ func LogicAlterTableRenameIndex(v *TraverseAlterTableRenameIndex, r *Rule) {
 		r.Summary = append(r.Summary, fmt.Sprintf("发现操作重复的索引`%s`[表`%s`]", strings.Join(data, ","), v.Table))
 	}
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -632,8 +694,12 @@ func LogicAlterTableRenameTblName(v *TraverseAlterTableRenameTblName, r *Rule) {
 		r.Summary = append(r.Summary, fmt.Sprintf("不允许RENAME表名[表`%s`]", v.Table))
 		return
 	}
+	if err := checkCrossDBAudit(v.NewTblName, r.DB, r.AuditConfig); err != nil {
+		r.Summary = append(r.Summary, err.Error())
+		return
+	}
 	// 判断新表是否存在
-	if err, msg := DescTable(v.NewTblName, r.DB); err == nil {
+	if err, msg := DescTable(v.NewTblName, r.DB, r.AuditConfig); err == nil {
 		r.Summary = append(r.Summary, msg)
 		return
 	}
@@ -642,7 +708,7 @@ func LogicAlterTableRenameTblName(v *TraverseAlterTableRenameTblName, r *Rule) {
 // LogicAlterTableInnodbLargePrefix
 func LogicAlterTableInnodbLargePrefix(v *TraverseAlterTableInnodbLargePrefix, r *Rule) {
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.LargePrefix.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.LargePrefix.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return
@@ -686,7 +752,7 @@ func LogicAlterTableRowSizeTooLarge(v *TraverseAlterTableRowSizeTooLarge, r *Rul
 	r.MergeAlter = v.Table
 
 	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
+	audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
 	if err != nil {
 		r.Summary = append(r.Summary, err.Error())
 		return

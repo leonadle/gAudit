@@ -23,7 +23,7 @@ type TraverseCreateTableIsExist struct {
 
 func (c *TraverseCreateTableIsExist) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 	}
 	return in, false
 }
@@ -40,7 +40,7 @@ type TraverseCreateTableAs struct {
 
 func (c *TraverseCreateTableAs) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		switch stmt.Select.(type) {
 		case *ast.SelectStmt:
 			c.IsCreateAs = true
@@ -61,7 +61,7 @@ type TraverseCreateTableLike struct {
 
 func (c *TraverseCreateTableLike) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		if stmt.ReferTable != nil {
 			c.IsCreateLike = true
 		}
@@ -80,7 +80,7 @@ type TraverseCreateTableOptions struct {
 
 func (c *TraverseCreateTableOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Options {
 			switch node.Tp {
 			case ast.TableOptionEngine:
@@ -118,7 +118,7 @@ type TraverseCreateTablePrimaryKey struct {
 
 func (c *TraverseCreateTablePrimaryKey) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		var keys []string
 		// 从I_ID bigint unsigned NOT NULL AUTO_INCREMENT primary key COMMENT '自增ID' 提取主键
 		for _, col := range stmt.Cols {
@@ -179,7 +179,7 @@ type TraverseCreateTableConstraint struct {
 
 func (c *TraverseCreateTableConstraint) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, cons := range stmt.Constraints {
 			if cons.Tp == ast.ConstraintForeignKey {
 				c.IsForeignKey = true
@@ -201,7 +201,7 @@ type TraverseCreateTableAuditCols struct {
 
 func (c *TraverseCreateTableAuditCols) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Cols {
 			var colOptions []string
 			if node.Tp.Tp == mysql.TypeDatetime || node.Tp.Tp == mysql.TypeTimestamp {
@@ -247,7 +247,7 @@ type TraverseCreateTableColsOptions struct {
 
 func (c *TraverseCreateTableColsOptions) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		// 主键、自增键不检测默认值
 		func() {
 			// 从I_ID bigint unsigned NOT NULL AUTO_INCREMENT primary key COMMENT '自增ID' 提取主键
@@ -325,7 +325,7 @@ type TraverseCreateTableColsRepeatDefine struct {
 
 func (c *TraverseCreateTableColsRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		// 获取所有的列
 		for _, col := range stmt.Cols {
 			c.Cols = append(c.Cols, col.Name.Name.L)
@@ -360,7 +360,7 @@ func (c *TraverseCreateTableColsCharset) Enter(in ast.Node) (ast.Node, bool) {
 				c.Cols = append(
 					c.Cols,
 					process.ColumnCharset{
-						Table:   stmt.Table.Name.String(),
+						Table:   tableNameWithSchema(stmt.Table),
 						Column:  col.Name.Name.O,
 						Tp:      col.Tp.Tp,
 						Charset: colCharset,
@@ -385,8 +385,8 @@ type TraverseCreateTableIndexesPrefix struct {
 
 func (c *TraverseCreateTableIndexesPrefix) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Prefix.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Prefix.Table = tableNameWithSchema(stmt.Table)
 		// 前缀
 		for _, cons := range stmt.Constraints {
 			switch cons.Tp {
@@ -414,8 +414,8 @@ type TraverseCreateTableIndexesCount struct {
 
 func (c *TraverseCreateTableIndexesCount) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Number.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Number.Table = tableNameWithSchema(stmt.Table)
 		// 索引数量
 		for _, cons := range stmt.Constraints {
 			switch cons.Tp {
@@ -442,7 +442,7 @@ type TraverseCreateTableIndexesRepeatDefine struct {
 
 func (c *TraverseCreateTableIndexesRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		// 获取所有的列
 		for _, cons := range stmt.Constraints {
 			switch cons.Tp {
@@ -466,8 +466,8 @@ type TraverseCreateTableRedundantIndexes struct {
 
 func (c *TraverseCreateTableRedundantIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.Redundant.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.Redundant.Table = tableNameWithSchema(stmt.Table)
 		// 冗余索引
 		for _, col := range stmt.Cols {
 			// 获取所有的列
@@ -501,8 +501,8 @@ type TraverseCreateTableDisabledIndexes struct {
 
 func (c *TraverseCreateTableDisabledIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
-		c.DisabledIndexes.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
+		c.DisabledIndexes.Table = tableNameWithSchema(stmt.Table)
 		// 禁止创建索引的列类型
 		for _, col := range stmt.Cols {
 			if col.Tp.Tp == mysql.TypeBlob ||
@@ -534,7 +534,7 @@ type TraverseCreateTableInnodbLargePrefix struct {
 
 func (c *TraverseCreateTableInnodbLargePrefix) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.LargePrefix.Table = stmt.Table.Name.String()
+		c.LargePrefix.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Options {
 			switch node.Tp {
 			case ast.TableOptionCharset:
@@ -590,7 +590,7 @@ type TraverseCreateTableRowSizeTooLarge struct {
 
 func (c *TraverseCreateTableRowSizeTooLarge) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.RowSizeTooLarge.Table = stmt.Table.Name.String()
+		c.RowSizeTooLarge.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Options {
 			switch node.Tp {
 			case ast.TableOptionCharset:
@@ -625,7 +625,7 @@ type TraverseCreateTableColsTp struct {
 
 func (c *TraverseCreateTableColsTp) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateTableStmt); ok {
-		c.Table = stmt.Table.Name.String()
+		c.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Options {
 			switch node.Tp {
 			case ast.TableOptionCharset:

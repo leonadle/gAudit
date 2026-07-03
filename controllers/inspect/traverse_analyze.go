@@ -20,7 +20,7 @@ func (c *TraverseAnalyzeTable) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AnalyzeTableStmt); ok {
 		c.IsMatch++
 		for _, t := range stmt.TableNames {
-			c.TableNames = append(c.TableNames, t.Name.L)
+			c.TableNames = append(c.TableNames, tableNameWithSchema(t))
 		}
 	}
 	return in, false

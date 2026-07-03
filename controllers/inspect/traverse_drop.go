@@ -21,7 +21,7 @@ func (c *TraverseDropTable) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.DropTableStmt); ok {
 		c.IsMatch++
 		for _, table := range stmt.Tables {
-			c.Tables = append(c.Tables, table.Name.O)
+			c.Tables = append(c.Tables, tableNameWithSchema(table))
 		}
 		c.IsHasDropTable = true
 	}
@@ -42,7 +42,7 @@ type TraverseTruncateTable struct {
 func (c *TraverseTruncateTable) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.TruncateTableStmt); ok {
 		c.IsMatch++
-		c.Table = stmt.Table.Name.O
+		c.Table = tableNameWithSchema(stmt.Table)
 		c.IsHasTruncateTable = true
 	}
 	return in, false

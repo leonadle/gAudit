@@ -20,7 +20,7 @@ func LogicAnalyzeTable(v *TraverseAnalyzeTable, r *Rule) {
 	}
 	// 表必须存在
 	for _, table := range v.TableNames {
-		if err, msg := DescTable(table, r.DB); err != nil {
+		if err, msg := DescTable(table, r.DB, r.AuditConfig); err != nil {
 			r.Summary = append(r.Summary, msg)
 		}
 	}

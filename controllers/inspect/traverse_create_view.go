@@ -20,7 +20,7 @@ type TraverseCreateViewIsExist struct {
 func (c *TraverseCreateViewIsExist) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.CreateViewStmt); ok {
 		c.OrReplace = stmt.OrReplace
-		c.View = stmt.ViewName.Name.String()
+		c.View = tableNameWithSchema(stmt.ViewName)
 	}
 	return in, false
 }

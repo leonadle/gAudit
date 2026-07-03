@@ -15,8 +15,13 @@ import (
 
 // LogicCreateTableIsExist
 func LogicCreateTableIsExist(v *TraverseCreateTableIsExist, r *Rule) {
+	if err := checkCrossDBAudit(v.Table, r.DB, r.AuditConfig); err != nil {
+		r.Summary = append(r.Summary, err.Error())
+		r.IsSkipNextStep = true
+		return
+	}
 	// 检查表是否存在,如果表存在,skip下面的检查
-	if err, msg := DescTable(v.Table, r.DB); err == nil {
+	if err, msg := DescTable(v.Table, r.DB, r.AuditConfig); err == nil {
 		r.Summary = append(r.Summary, msg)
 		r.IsSkipNextStep = true
 	}

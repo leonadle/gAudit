@@ -19,8 +19,12 @@ func LogicDisableAuditDMLTables(v *TraverseDisableAuditDMLTables, r *Rule) {
 	if len(r.AuditConfig.DISABLE_AUDIT_DML_TABLES) > 0 {
 		for _, item := range r.AuditConfig.DISABLE_AUDIT_DML_TABLES {
 			for _, table := range v.Tables {
-				if item.DB == r.DB.Database && utils.IsContain(item.Tables, table) {
-					r.Summary = append(r.Summary, fmt.Sprintf("表`%s`.`%s`被限制进行DML语法审核，原因: %s", r.DB.Database, table, item.Reason))
+				schema, tableName := utils.SplitTableName(table)
+				if schema == "" {
+					schema = r.DB.Database
+				}
+				if item.DB == schema && utils.IsContain(item.Tables, tableName) {
+					r.Summary = append(r.Summary, fmt.Sprintf("表`%s`.`%s`被限制进行DML语法审核，原因: %s", schema, tableName, item.Reason))
 					r.IsSkipNextStep = true
 				}
 			}
@@ -28,7 +32,7 @@ func LogicDisableAuditDMLTables(v *TraverseDisableAuditDMLTables, r *Rule) {
 	}
 	// DML语句检查表是否存在
 	for _, table := range v.Tables {
-		if err, msg := DescTable(table, r.DB); err != nil {
+		if err, msg := DescTable(table, r.DB, r.AuditConfig); err != nil {
 			r.Summary = append(r.Summary, msg)
 			r.IsSkipNextStep = true
 		}
@@ -71,28 +75,30 @@ func LogicDMLInsertWithColumns(v *TraverseDMLInsertWithColumns, r *Rule) {
 		r.IsSkipNextStep = true
 		return
 	}
-	// 获取db表结构
-	audit, err := ShowCreateTable(v.Table, r.DB, r.KV)
-	if err != nil {
-		r.Summary = append(r.Summary, err.Error())
-		return
-	}
-	// 解析获取的db表结构
-	vAudit := &TraverseAlterTableShowCreateTableGetCols{}
-	switch audit := audit.(type) {
-	case *config.Audit:
-		(audit.TiStmt[0]).Accept(vAudit)
-	}
-	// 判断列是否存在
-	for _, col := range v.Columns {
-		if !utils.IsContain(vAudit.Cols, col) {
-			r.Summary = append(r.Summary, fmt.Sprintf("列`%s`不存在[表`%s`]", col, v.Table))
+	if v.ColumnsCount > 0 {
+		// 获取db表结构
+		audit, err := ShowCreateTable(v.Table, r.DB, r.KV, r.AuditConfig)
+		if err != nil {
+			r.Summary = append(r.Summary, err.Error())
+			return
+		}
+		// 解析获取的db表结构
+		vAudit := &TraverseAlterTableShowCreateTableGetCols{}
+		switch audit := audit.(type) {
+		case *config.Audit:
+			(audit.TiStmt[0]).Accept(vAudit)
+		}
+		// 判断列是否存在
+		for _, col := range v.Columns {
+			if !utils.IsContain(vAudit.Cols, col) {
+				r.Summary = append(r.Summary, fmt.Sprintf("列`%s`不存在[表`%s`]", col, v.Table))
+			}
 		}
 	}
 	// 强制指定列名
-	if v.ColumnsCount == 0 {
+	if v.ColumnsCount == 0 && r.AuditConfig.DML_MUST_SPECIFY_COLUMNS {
 		r.Summary = append(r.Summary, fmt.Sprintf("%s语句必须指定列名", v.DMLType))
-	} else if !v.ColsValuesIsMatch {
+	} else if v.ColumnsCount > 0 && !v.ColsValuesIsMatch {
 		r.Summary = append(r.Summary, fmt.Sprintf("%s语句指定的列数量和值的数量不匹配", v.DMLType))
 	}
 	if v.RowsCount > r.AuditConfig.MAX_INSERT_ROWS {
