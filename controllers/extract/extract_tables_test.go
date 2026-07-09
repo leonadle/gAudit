@@ -3,6 +3,7 @@ package extract
 import (
 	"errors"
 	"sqlSyntaxAudit/config"
+	"sqlSyntaxAudit/controllers/parser"
 	"sqlSyntaxAudit/forms"
 	"sqlSyntaxAudit/global"
 	logger "sqlSyntaxAudit/middleware/log"
@@ -17,6 +18,20 @@ func init() {
 		LogFilePath: "../../logs",
 	}
 	logger.Setup()
+}
+
+func TestExtractTablesFromStatementPreserveCase(t *testing.T) {
+	audit, warns, err := parser.NewParse("update userData_bak set money = 100 where id = 100", "", "")
+	assert.NoError(t, err)
+	assert.Empty(t, warns)
+
+	defaultTables, typ := ExtractTablesFromStatement(&audit.TiStmt[0])
+	assert.Equal(t, "UPDATE", typ)
+	assert.Equal(t, []string{"userdata_bak"}, defaultTables)
+
+	preserveTables, typ := ExtractTablesFromStatementPreserveCase(&audit.TiStmt[0])
+	assert.Equal(t, "UPDATE", typ)
+	assert.Equal(t, []string{"userData_bak"}, preserveTables)
 }
 
 func TestChecker_Extract(t *testing.T) {

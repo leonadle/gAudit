@@ -51,9 +51,12 @@ func removeElement(data, toBeRemoved []string) []string {
 	return result
 }
 
-func tableNameWithSchema(table *ast.TableName) string {
+func tableNameWithSchema(table *ast.TableName, preserveCase bool) string {
 	if table == nil {
 		return ""
+	}
+	if preserveCase {
+		return utils.FormatTableName(table.Schema.O, table.Name.O)
 	}
 	return utils.FormatTableName(table.Schema.L, table.Name.L)
 }
@@ -106,6 +109,7 @@ func (c *Checker) Parse() error {
 type ExtractTables struct {
 	Tables            []string // 表名
 	RecursiveCTENames []string // 递归CTE别名
+	PreserveCase      bool     // 是否保留SQL中的原始大小写
 }
 
 // 迭代select语句
@@ -122,7 +126,7 @@ func (e *ExtractTables) checkSelectItem(node ast.ResultSetNode) {
 	case *ast.TableSource:
 		e.checkSelectItem(n.Source)
 	case *ast.TableName:
-		e.Tables = append(e.Tables, tableNameWithSchema(n))
+		e.Tables = append(e.Tables, tableNameWithSchema(n, e.PreserveCase))
 	}
 }
 
@@ -172,6 +176,7 @@ type TraverseStatement struct {
 	Tables            []string // 表名
 	RecursiveCTENames []string // 递归CTE别名
 	Type              string   // 语句类型
+	PreserveCase      bool     // 是否保留SQL中的原始大小写
 	setTypeOnce       sync.Once
 }
 
@@ -183,7 +188,7 @@ func (c *TraverseStatement) setType(typ string) {
 }
 
 func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
-	var e ExtractTables
+	e := ExtractTables{PreserveCase: c.PreserveCase}
 	switch stmt := in.(type) {
 	case *ast.SelectStmt:
 		c.setType("SELECT")
@@ -230,24 +235,24 @@ func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
 		c.Tables = append(c.Tables, e.Tables...)
 	case *ast.CreateTableStmt:
 		c.setType("CREATE TABLE")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
 	case *ast.CreateViewStmt:
 		c.setType("CREATE VIEW")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.ViewName))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.ViewName, c.PreserveCase))
 	case *ast.CreateIndexStmt:
 		c.setType("CREATE INDEX")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
 	case *ast.AlterTableStmt:
 		c.setType("ALTER TABLE")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
 	case *ast.DropIndexStmt:
 		c.setType("DROP INDEX")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
 	case *ast.RenameTableStmt:
 		c.setType("RENAME TABLE")
 		for _, t := range stmt.TableToTables {
-			c.Tables = append(c.Tables, tableNameWithSchema(t.OldTable))
-			c.Tables = append(c.Tables, tableNameWithSchema(t.NewTable))
+			c.Tables = append(c.Tables, tableNameWithSchema(t.OldTable, c.PreserveCase))
+			c.Tables = append(c.Tables, tableNameWithSchema(t.NewTable, c.PreserveCase))
 		}
 	case *ast.DropTableStmt:
 		if stmt.IsView {
@@ -256,11 +261,11 @@ func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
 			c.setType("DROP TABLE")
 		}
 		for _, t := range stmt.Tables {
-			c.Tables = append(c.Tables, tableNameWithSchema(t))
+			c.Tables = append(c.Tables, tableNameWithSchema(t, c.PreserveCase))
 		}
 	case *ast.TruncateTableStmt:
 		c.setType("TRUNCATE TABLE")
-		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table))
+		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
 	}
 	return in, false
 }
@@ -271,6 +276,12 @@ func (c *TraverseStatement) Leave(in ast.Node) (ast.Node, bool) {
 
 func ExtractTablesFromStatement(stmt *ast.StmtNode) ([]string, string) {
 	v := &TraverseStatement{}
+	(*stmt).Accept(v)
+	return removeElement(removeDuplicateElement(v.Tables), v.RecursiveCTENames), v.Type
+}
+
+func ExtractTablesFromStatementPreserveCase(stmt *ast.StmtNode) ([]string, string) {
+	v := &TraverseStatement{PreserveCase: true}
 	(*stmt).Accept(v)
 	return removeElement(removeDuplicateElement(v.Tables), v.RecursiveCTENames), v.Type
 }

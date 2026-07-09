@@ -10,5 +10,5 @@ func tableNameWithSchema(table *ast.TableName) string {
 	if table == nil {
 		return ""
 	}
-	return utils.FormatTableName(table.Schema.L, table.Name.L)
+	return utils.FormatTableName(table.Schema.O, table.Name.O)
 }

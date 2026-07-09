@@ -52,7 +52,7 @@ func DMLRules() []Rule {
 // RuleDisableAuditDMLTables
 func (r *Rule) RuleDisableAuditDMLTables(tistmt *ast.StmtNode) {
 	v := &TraverseDisableAuditDMLTables{}
-	v.Tables, _ = extract.ExtractTablesFromStatement(tistmt)
+	v.Tables, _ = extract.ExtractTablesFromStatementPreserveCase(tistmt)
 	LogicDisableAuditDMLTables(v, r)
 }
 
