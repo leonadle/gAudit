@@ -56,7 +56,7 @@ func ShowCreateTable(table string, db *utils.DB, kv *kv.KVCache, auditConfig *co
 	}
 
 	var warns []error
-	data, warns, err = parser.NewParse(createStatement, "", "")
+	data, warns, err = parser.NewParse(utils.NormalizeCreateTableForParser(createStatement), "", "")
 	if len(warns) > 0 {
 		return nil, fmt.Errorf("Parse Warning: %s", utils.ErrsJoin("; ", warns))
 	}

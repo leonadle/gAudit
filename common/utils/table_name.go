@@ -1,6 +1,11 @@
 package utils
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var mysqlSpatialColumnTypePattern = regexp.MustCompile("(?im)^(\\s*(?:`(?:[^`]|``)+`|[A-Za-z_][A-Za-z0-9_]*)\\s+)(point|linestring|polygon|multipoint|multilinestring|multipolygon|geometrycollection)(\\b)")
 
 // FormatTableName joins an optional schema and table name into the internal
 // representation used by audit rules.
@@ -59,4 +64,8 @@ func QuoteSQLString(value string) string {
 
 func DisplayTableName(table string) string {
 	return QuoteTableName(table)
+}
+
+func NormalizeCreateTableForParser(createStatement string) string {
+	return mysqlSpatialColumnTypePattern.ReplaceAllString(createStatement, "${1}varchar(255)${3}")
 }
