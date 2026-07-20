@@ -14,6 +14,7 @@ import (
 	"sqlSyntaxAudit/config"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/pingcap/tidb/parser/mysql"
@@ -173,6 +174,14 @@ func (c *ColOptions) CheckColumnDefaultValue() error {
 			// 判断string型默认值的长度是否超过了定义的长度
 			if utf8.RuneCountInString(defaultStr) > c.Flen {
 				return fmt.Errorf("列`%s`的默认值超过了字段类型定义的长度[表`%s`]", c.Column, c.Table)
+			}
+		case mysql.TypeDate:
+			defaultStr, ok := c.DefaultValue.(string)
+			if !ok {
+				return fmt.Errorf("列`%s`的DATE类型默认值不合法，必须是有效日期(YYYY-MM-DD)，不能使用空字符串；请移除DEFAULT或指定业务有效日期[表`%s`]", c.Column, c.Table)
+			}
+			if _, err := time.Parse("2006-01-02", defaultStr); err != nil {
+				return fmt.Errorf("列`%s`的DATE类型默认值不合法，必须是有效日期(YYYY-MM-DD)，不能使用空字符串；请移除DEFAULT或指定业务有效日期[表`%s`]", c.Column, c.Table)
 			}
 		}
 
