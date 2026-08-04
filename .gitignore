@@ -1,6 +1,5 @@
 .vscode
 vendor
-go.sum
 logs
 tmp
 tests/logs
