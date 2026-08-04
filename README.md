@@ -1,6 +1,6 @@
 
 # gAudit
-![GO](https://img.shields.io/badge/go-1.18-brightgreen.svg?style=flat-square)
+![GO](https://img.shields.io/badge/go-1.19%2B-brightgreen.svg?style=flat-square)
 ![Download](https://img.shields.io/github/downloads/lazzyfu/gAudit/total?style=flat-square)
 ![License](https://img.shields.io/github/license/lazzyfu/gAudit?style=flat-square)
 
@@ -13,7 +13,7 @@ gAudit是基于golang语言实现的一个SQL语法审核工具，支持MySQL/Ti
 - [最佳实践](docs/practice.md)
 
 ## 语法解析器
-* [tidb parser](https://github.com/pingcap/tidb/tree/master/parser)
+* [tidb parser](https://github.com/pingcap/tidb/tree/v8.1.2/pkg/parser)
 
 
 ## 使用
@@ -125,4 +125,4 @@ curl --location --request POST '127.0.0.1:8081/api/v1/extract-tables' \
 
 
 ## 致谢
-- [PingCAP](https://github.com/pingcap/tidb/tree/master/parser)
+- [PingCAP](https://github.com/pingcap/tidb/tree/v8.1.2/pkg/parser)

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sqlSyntaxAudit/config"
 
-	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
 )
 
 type PrimaryKey struct {

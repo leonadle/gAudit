@@ -9,7 +9,7 @@ package inspect
 import (
 	"sqlSyntaxAudit/controllers/process"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 // TraverseDisableAuditDMLTables

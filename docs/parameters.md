@@ -365,8 +365,8 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 可选值: true/false
 
 #### ENABLE_TIDB_MERGE_ALTER_TABLE
-描述: TiDB同一个表的多个ALTER是否合并为单条语句
-默认值: false
+描述: 是否允许单条TiDB ALTER TABLE包含多个操作。TiDB 6.2及以上版本支持多操作ALTER；低版本或无法识别版本时仍会拒绝。
+默认值: true
 可选值: true/false
 
 #### DML_MUST_HAVE_WHERE

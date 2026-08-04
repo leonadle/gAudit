@@ -9,7 +9,7 @@ package inspect
 import (
 	"sqlSyntaxAudit/controllers/extract"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 func DMLRules() []Rule {

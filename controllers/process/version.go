@@ -8,9 +8,12 @@ package process
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+var tidbVersionPattern = regexp.MustCompile(`(?i)tidb-v?(\d+)\.(\d+)\.(\d+)`)
 
 // 版本格式：major.minor.patch
 type DbVersion struct {
@@ -47,4 +50,20 @@ func (d *DbVersion) Int() int {
 func (d *DbVersion) IsTiDB() bool {
 	// 判断是否为tidb
 	return strings.Contains(strings.ToLower(d.Version), "tidb")
+}
+
+// TiDBInt returns the TiDB server version as major*10000+minor*100+patch.
+// For example, 5.7.25-TiDB-v8.1.2 is returned as 80102.
+func (d *DbVersion) TiDBInt() int {
+	matches := tidbVersionPattern.FindStringSubmatch(d.Version)
+	if len(matches) != 4 {
+		return 0
+	}
+	major, errMajor := strconv.Atoi(matches[1])
+	minor, errMinor := strconv.Atoi(matches[2])
+	patch, errPatch := strconv.Atoi(matches[3])
+	if errMajor != nil || errMinor != nil || errPatch != nil {
+		return 0
+	}
+	return major*10000 + minor*100 + patch
 }

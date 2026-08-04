@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 type Audit struct {
@@ -89,7 +89,7 @@ type AuditConfiguration struct {
 	ENABLE_TRUNCATE_TABLE          bool // 是否允许TRUNCATE TABLE
 	ENABLE_RENAME_TABLE_NAME       bool // 是否允许rename表名
 	ENABLE_MYSQL_MERGE_ALTER_TABLE bool // MySQL同一个表的多个ALTER是否合并为单条语句
-	ENABLE_TIDB_MERGE_ALTER_TABLE  bool // TiDB同一个表的多个ALTER是否合并为单条语句
+	ENABLE_TIDB_MERGE_ALTER_TABLE  bool // 是否允许单条TiDB ALTER TABLE包含多个操作
 	// DML
 	DML_MUST_HAVE_WHERE        bool   // DML语句必须有where条件
 	DML_DISABLE_LIMIT          bool   // DML语句中不允许有LIMIT
@@ -169,7 +169,7 @@ func newAuditConfiguration() *AuditConfiguration {
 		ENABLE_TRUNCATE_TABLE:                true,
 		ENABLE_RENAME_TABLE_NAME:             false,
 		ENABLE_MYSQL_MERGE_ALTER_TABLE:       true,
-		ENABLE_TIDB_MERGE_ALTER_TABLE:        false,
+		ENABLE_TIDB_MERGE_ALTER_TABLE:        true,
 		DML_MUST_HAVE_WHERE:                  true,
 		DML_DISABLE_LIMIT:                    true,
 		DML_DISABLE_ORDERBY:                  true,

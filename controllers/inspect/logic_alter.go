@@ -13,7 +13,7 @@ import (
 	"sqlSyntaxAudit/controllers/process"
 	"strings"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 // LogicAlterTableIsExist
@@ -39,14 +39,46 @@ func LogicAlterTableIsExist(v *TraverseAlterTableIsExist, r *Rule) {
 	}
 }
 
+// LogicAlterTablePartition applies the existing partition policy to ALTER TABLE.
+func LogicAlterTablePartition(v *TraverseAlterTablePartition, r *Rule) {
+	if v.IsMatch == 0 {
+		return
+	}
+	if !r.AuditConfig.ENABLE_PARTITION_TABLE {
+		r.Summary = append(r.Summary, fmt.Sprintf("表`%s`不允许执行分区变更", v.Table))
+		return
+	}
+	for _, table := range v.ExchangeTables {
+		if err, msg := DescTable(table, r.DB, r.AuditConfig); err != nil {
+			r.Summary = append(r.Summary, msg)
+		}
+	}
+}
+
 // LogicAlterTableTiDBMerge
 func LogicAlterTableTiDBMerge(v *TraverseAlterTiDBMerge, r *Rule) {
-	// 检查TiDBMergeAlter
+	if v.SpecsLen <= 1 {
+		return
+	}
 	dbVersionIns := process.DbVersion{Version: r.KV.Get("dbVersion").(string)}
-	if !r.AuditConfig.ENABLE_TIDB_MERGE_ALTER_TABLE && dbVersionIns.IsTiDB() {
-		if v.SpecsLen > 1 {
-			r.Summary = append(r.Summary, fmt.Sprintf("表`%s`的多个操作，请拆分为多条ALTER语句(TiDB不支持在单个ALTER TABLE语句中进行多个更改)", v.Table))
-		}
+	if !dbVersionIns.IsTiDB() {
+		return
+	}
+	version := dbVersionIns.TiDBInt()
+	if version == 0 {
+		r.Summary = append(r.Summary, fmt.Sprintf("表`%s`包含多个ALTER操作，但无法识别TiDB版本，请拆分后提交", v.Table))
+		return
+	}
+	if version < 60200 {
+		r.Summary = append(r.Summary, fmt.Sprintf("表`%s`包含多个ALTER操作，当前TiDB版本不支持多对象变更，请拆分后提交", v.Table))
+		return
+	}
+	if !r.AuditConfig.ENABLE_TIDB_MERGE_ALTER_TABLE {
+		r.Summary = append(r.Summary, fmt.Sprintf("表`%s`包含多个ALTER操作，当前审核策略要求拆分提交", v.Table))
+		return
+	}
+	if len(v.Conflicts) > 0 {
+		r.Summary = append(r.Summary, fmt.Sprintf("表`%s`在同一条ALTER语句中重复修改%s，请拆分后提交", v.Table, strings.Join(v.Conflicts, "、")))
 	}
 }
 
@@ -77,7 +109,7 @@ func LogicAlterTableDropColsOrIndexes(v *TraverseAlterTableDropColsOrIndexes, r 
 		} else {
 			// 检查drop的列是否存在
 			for _, col := range v.Cols {
-				if !utils.IsContain(vAudit.Cols, col) {
+				if !utils.IsContain(vAudit.Cols, col) && !v.ColsIfExists[strings.ToLower(col)] {
 					r.Summary = append(r.Summary, fmt.Sprintf("表`%s`DROP的列`%s`不存在", v.Table, col))
 				}
 			}
@@ -91,14 +123,14 @@ func LogicAlterTableDropColsOrIndexes(v *TraverseAlterTableDropColsOrIndexes, r 
 			}
 		}
 	}
-	if len(vAudit.Indexes) > 0 {
+	if len(v.Indexes) > 0 {
 		if !r.AuditConfig.ENABLE_DROP_INDEXES {
 			// 不允许drop索引
 			r.Summary = append(r.Summary, fmt.Sprintf("表`%s`不允许DROP索引", v.Table))
 		} else {
 			// 检查drop的索引是否存在
 			for _, index := range v.Indexes {
-				if !utils.IsContain(vAudit.Indexes, index) {
+				if !utils.IsContain(vAudit.Indexes, index) && !v.IndexesIfExists[strings.ToLower(index)] {
 					r.Summary = append(r.Summary, fmt.Sprintf("表`%s`DROP的索引`%s`不存在", v.Table, index))
 				}
 			}
@@ -254,10 +286,21 @@ func LogicAlterTableAddColRepeatDefine(v *TraverseAlterTableAddColRepeatDefine, 
 	case *config.Audit:
 		(audit.TiStmt[0]).Accept(vAudit)
 	}
-	v.Cols = append(v.Cols, vAudit.Cols...)
-
-	if ok, data := utils.IsRepeat(v.Cols); ok {
-		r.Summary = append(r.Summary, fmt.Sprintf("发现重复的列名`%s`[表`%s`]", strings.Join(data, ","), v.Table))
+	existing := make(map[string]bool)
+	for _, col := range vAudit.Cols {
+		existing[strings.ToLower(col)] = true
+	}
+	seen := make(map[string]int)
+	duplicates := make([]string, 0)
+	for _, col := range v.Cols {
+		key := strings.ToLower(col)
+		seen[key]++
+		if seen[key] > 1 || (existing[key] && !v.IfNotExists[key]) {
+			duplicates = append(duplicates, col)
+		}
+	}
+	if len(duplicates) > 0 {
+		r.Summary = append(r.Summary, fmt.Sprintf("发现重复的列名`%s`[表`%s`]", strings.Join(duplicates, ","), v.Table))
 	}
 }
 
@@ -352,9 +395,21 @@ func LogicAlterTableAddIndexRepeatDefine(v *TraverseAlterTableAddIndexRepeatDefi
 	case *config.Audit:
 		(audit.TiStmt[0]).Accept(vAudit)
 	}
-	v.Indexes = append(v.Indexes, vAudit.Indexes...)
-	if ok, data := utils.IsRepeat(v.Indexes); ok {
-		r.Summary = append(r.Summary, fmt.Sprintf("发现重复的索引`%s`[表`%s`]", strings.Join(data, ","), v.Table))
+	existing := make(map[string]bool)
+	for _, index := range vAudit.Indexes {
+		existing[strings.ToLower(index)] = true
+	}
+	seen := make(map[string]int)
+	duplicates := make([]string, 0)
+	for _, index := range v.Indexes {
+		key := strings.ToLower(index)
+		seen[key]++
+		if seen[key] > 1 || (existing[key] && !v.IfNotExists[key]) {
+			duplicates = append(duplicates, index)
+		}
+	}
+	if len(duplicates) > 0 {
+		r.Summary = append(r.Summary, fmt.Sprintf("发现重复的索引`%s`[表`%s`]", strings.Join(duplicates, ","), v.Table))
 	}
 }
 

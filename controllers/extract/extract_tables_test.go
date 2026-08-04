@@ -34,6 +34,33 @@ func TestExtractTablesFromStatementPreserveCase(t *testing.T) {
 	assert.Equal(t, []string{"userData_bak"}, preserveTables)
 }
 
+func TestExtractTiDB81AlterTables(t *testing.T) {
+	tests := []struct {
+		sql    string
+		want   []string
+		stmtTp string
+	}{
+		{
+			sql:    "ALTER TABLE bi_data.user_house_behavior_profile TTL = updated_at + INTERVAL 90 DAY TTL_ENABLE = 'ON' TTL_JOB_INTERVAL = '24h'",
+			want:   []string{"bi_data.user_house_behavior_profile"},
+			stmtTp: "ALTER TABLE",
+		},
+		{
+			sql:    "ALTER TABLE bi_data.events EXCHANGE PARTITION p1 WITH TABLE archive.events_p1",
+			want:   []string{"bi_data.events", "archive.events_p1"},
+			stmtTp: "ALTER TABLE",
+		},
+	}
+	for _, tt := range tests {
+		audit, warns, err := parser.NewParse(tt.sql, "", "")
+		assert.NoError(t, err)
+		assert.Empty(t, warns)
+		tables, stmtType := ExtractTablesFromStatementPreserveCase(&audit.TiStmt[0])
+		assert.Equal(t, tt.want, tables)
+		assert.Equal(t, tt.stmtTp, stmtType)
+	}
+}
+
 func TestChecker_Extract(t *testing.T) {
 	tests := []struct {
 		name    string

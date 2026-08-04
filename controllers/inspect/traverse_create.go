@@ -11,9 +11,9 @@ import (
 	"sqlSyntaxAudit/controllers/process"
 	"strings"
 
-	"github.com/pingcap/tidb/parser/ast"
-	"github.com/pingcap/tidb/parser/mysql"
-	driver "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
+	driver "github.com/pingcap/tidb/pkg/parser/test_driver"
 )
 
 // TraverseCreateTableIsExist
@@ -132,9 +132,10 @@ func (c *TraverseCreateTablePrimaryKey) Enter(in ast.Node) (ast.Node, bool) {
 		for _, cons := range stmt.Constraints {
 			if cons.Tp == ast.ConstraintPrimaryKey {
 				for _, col := range cons.Keys {
+					name, _ := indexPartIdentity(col)
 					// 去重
-					if !utils.IsContain(keys, col.Column.Name.O) {
-						keys = append(keys, col.Column.Name.O)
+					if name != "" && !utils.IsContain(keys, name) {
+						keys = append(keys, name)
 					}
 				}
 			}
@@ -155,8 +156,8 @@ func (c *TraverseCreateTablePrimaryKey) Enter(in ast.Node) (ast.Node, bool) {
 					c.PrimaryKeys = append(c.PrimaryKeys, process.PrimaryKey{
 						Table:            c.Table,
 						Column:           col.Name.Name.O,
-						Tp:               col.Tp.Tp,
-						Flag:             col.Tp.Flag,
+						Tp:               col.Tp.GetType(),
+						Flag:             col.Tp.GetFlag(),
 						HasNotNull:       HasNotNull,
 						HasAutoIncrement: HasAutoIncrement,
 					})
@@ -204,7 +205,7 @@ func (c *TraverseCreateTableAuditCols) Enter(in ast.Node) (ast.Node, bool) {
 		c.Table = tableNameWithSchema(stmt.Table)
 		for _, node := range stmt.Cols {
 			var colOptions []string
-			if node.Tp.Tp == mysql.TypeDatetime || node.Tp.Tp == mysql.TypeTimestamp {
+			if node.Tp.GetType() == mysql.TypeDatetime || node.Tp.GetType() == mysql.TypeTimestamp {
 				for _, o := range node.Options {
 					if o.Tp == ast.ColumnOptionDefaultValue {
 						// DEFAULT CURRENT_TIMESTAMP
@@ -263,9 +264,10 @@ func (c *TraverseCreateTableColsOptions) Enter(in ast.Node) (ast.Node, bool) {
 			for _, cons := range stmt.Constraints {
 				if cons.Tp == ast.ConstraintPrimaryKey {
 					for _, col := range cons.Keys {
+						name, _ := indexPartIdentity(col)
 						// 去重
-						if !utils.IsContain(c.PrimaryKeys, col.Column.Name.O) {
-							c.PrimaryKeys = append(c.PrimaryKeys, col.Column.Name.O)
+						if name != "" && !utils.IsContain(c.PrimaryKeys, name) {
+							c.PrimaryKeys = append(c.PrimaryKeys, name)
 						}
 					}
 				}
@@ -283,7 +285,7 @@ func (c *TraverseCreateTableColsOptions) Enter(in ast.Node) (ast.Node, bool) {
 					HasDefaultValue = true
 					if v, ok := op.Expr.(*driver.ValueExpr); ok {
 						// 有默认值，且为NULL，且有NOT NULL约束，如(not null default null)
-						DefaultIsNull = v.Datum.IsNull()
+						DefaultIsNull = v.Kind() == driver.KindNull
 						// 获取列的默认值
 						DefaultValue = v.GetValue()
 					}
@@ -299,8 +301,8 @@ func (c *TraverseCreateTableColsOptions) Enter(in ast.Node) (ast.Node, bool) {
 					process.ColOptions{
 						Table:           c.Table,
 						Column:          col.Name.Name.O,
-						Tp:              col.Tp.Tp,
-						Flen:            col.Tp.Flen,
+						Tp:              col.Tp.GetType(),
+						Flen:            col.Tp.GetFlen(),
 						NotNullFlag:     NotNullFlag,
 						HasDefaultValue: HasDefaultValue,
 						DefaultValue:    DefaultValue,
@@ -348,8 +350,8 @@ func (c *TraverseCreateTableColsCharset) Enter(in ast.Node) (ast.Node, bool) {
 		// 获取列字符集和排序规则
 		for _, col := range stmt.Cols {
 			var colCharset, colCollate string
-			colCharset = col.Tp.Charset
-			colCollate = col.Tp.Collate
+			colCharset = col.Tp.GetCharset()
+			colCollate = col.Tp.GetCollate()
 			for _, v := range col.Options {
 				if v.Tp == ast.ColumnOptionCollate {
 					colCollate = v.StrValue
@@ -362,7 +364,7 @@ func (c *TraverseCreateTableColsCharset) Enter(in ast.Node) (ast.Node, bool) {
 					process.ColumnCharset{
 						Table:   tableNameWithSchema(stmt.Table),
 						Column:  col.Name.Name.O,
-						Tp:      col.Tp.Tp,
+						Tp:      col.Tp.GetType(),
 						Charset: colCharset,
 						Collate: colCollate,
 					},
@@ -480,7 +482,9 @@ func (c *TraverseCreateTableRedundantIndexes) Enter(in ast.Node) (ast.Node, bool
 				c.Redundant.Indexes = append(c.Redundant.Indexes, cons.Name)
 				var idxColsMap []string
 				for _, v := range cons.Keys {
-					idxColsMap = append(idxColsMap, v.Column.Name.L)
+					if identity, _ := indexPartIdentity(v); identity != "" {
+						idxColsMap = append(idxColsMap, identity)
+					}
 				}
 				c.Redundant.IndexesCols = append(c.Redundant.IndexesCols, process.IndexColsMap{Index: cons.Name, Cols: idxColsMap, Tag: "is_meta"})
 			}
@@ -505,17 +509,19 @@ func (c *TraverseCreateTableDisabledIndexes) Enter(in ast.Node) (ast.Node, bool)
 		c.DisabledIndexes.Table = tableNameWithSchema(stmt.Table)
 		// 禁止创建索引的列类型
 		for _, col := range stmt.Cols {
-			if col.Tp.Tp == mysql.TypeBlob ||
-				col.Tp.Tp == mysql.TypeTinyBlob ||
-				col.Tp.Tp == mysql.TypeMediumBlob ||
-				col.Tp.Tp == mysql.TypeLongBlob {
+			if col.Tp.GetType() == mysql.TypeBlob ||
+				col.Tp.GetType() == mysql.TypeTinyBlob ||
+				col.Tp.GetType() == mysql.TypeMediumBlob ||
+				col.Tp.GetType() == mysql.TypeLongBlob {
 				c.DisabledIndexes.Cols = append(c.DisabledIndexes.Cols, col.Name.Name.O)
 			}
 		}
 		for _, cons := range stmt.Constraints {
 			var idxColsMap []string
 			for _, v := range cons.Keys {
-				idxColsMap = append(idxColsMap, v.Column.Name.L)
+				if identity, isColumn := indexPartIdentity(v); isColumn && identity != "" {
+					idxColsMap = append(idxColsMap, identity)
+				}
 			}
 			c.DisabledIndexes.IndexesCols = append(c.DisabledIndexes.IndexesCols, process.IndexColsMap{Index: cons.Name, Cols: idxColsMap})
 		}
@@ -548,8 +554,10 @@ func (c *TraverseCreateTableInnodbLargePrefix) Enter(in ast.Node) (ast.Node, boo
 				var LargePrefixIndexColsMap process.LargePrefixIndexColsMap
 				LargePrefixIndexColsMap.Name = cons.Name
 				for _, col := range cons.Keys {
-					LargePrefixIndexColsMap.Keys = append(LargePrefixIndexColsMap.Keys,
-						process.LargePrefixIndexPartSpecification{Column: col.Column.Name.L, Ilen: col.Length})
+					if identity, isColumn := indexPartIdentity(col); isColumn && identity != "" {
+						LargePrefixIndexColsMap.Keys = append(LargePrefixIndexColsMap.Keys,
+							process.LargePrefixIndexPartSpecification{Column: identity, Ilen: col.Length})
+					}
 				}
 				LargePrefixIndexColsMaps = append(LargePrefixIndexColsMaps, LargePrefixIndexColsMap)
 			}
@@ -564,11 +572,11 @@ func (c *TraverseCreateTableInnodbLargePrefix) Enter(in ast.Node) (ast.Node, boo
 							process.LargePrefixIndexPartSpecification{
 								Column:  j.Column,
 								Ilen:    j.Ilen,
-								Tp:      col.Tp.Tp,
-								Flen:    col.Tp.Flen,
-								Decimal: col.Tp.Decimal,
-								Charset: col.Tp.Charset,
-								Elems:   col.Tp.Elems,
+								Tp:      col.Tp.GetType(),
+								Flen:    col.Tp.GetFlen(),
+								Decimal: col.Tp.GetDecimal(),
+								Charset: col.Tp.GetCharset(),
+								Elems:   col.Tp.GetElems(),
 							})
 					}
 				}
@@ -601,11 +609,11 @@ func (c *TraverseCreateTableRowSizeTooLarge) Enter(in ast.Node) (ast.Node, bool)
 			c.RowSizeTooLarge.RowSizeTooLargeColsMaps = append(c.RowSizeTooLarge.RowSizeTooLargeColsMaps,
 				process.RowSizeTooLargePartSpecification{
 					Column:  col.Name.Name.L,
-					Tp:      col.Tp.Tp,
-					Flen:    col.Tp.Flen,
-					Decimal: col.Tp.Decimal,
-					Charset: col.Tp.Charset,
-					Elems:   col.Tp.Elems,
+					Tp:      col.Tp.GetType(),
+					Flen:    col.Tp.GetFlen(),
+					Decimal: col.Tp.GetDecimal(),
+					Charset: col.Tp.GetCharset(),
+					Elems:   col.Tp.GetElems(),
 				})
 		}
 	}
@@ -637,11 +645,11 @@ func (c *TraverseCreateTableColsTp) Enter(in ast.Node) (ast.Node, bool) {
 			c.Cols = append(c.Cols,
 				process.LargePrefixIndexPartSpecification{
 					Column:  col.Name.Name.O,
-					Tp:      col.Tp.Tp,
-					Flen:    col.Tp.Flen,
-					Decimal: col.Tp.Decimal,
-					Charset: col.Tp.Charset,
-					Elems:   col.Tp.Elems,
+					Tp:      col.Tp.GetType(),
+					Flen:    col.Tp.GetFlen(),
+					Decimal: col.Tp.GetDecimal(),
+					Charset: col.Tp.GetCharset(),
+					Elems:   col.Tp.GetElems(),
 				})
 		}
 	}

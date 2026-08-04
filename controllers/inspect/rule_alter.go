@@ -7,7 +7,7 @@
 package inspect
 
 import (
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 func AlterTableRules() []Rule {
@@ -15,6 +15,10 @@ func AlterTableRules() []Rule {
 		{
 			Hint:      "AlterTable#检查表是否存在",
 			CheckFunc: (*Rule).RuleAlterTableIsExist,
+		},
+		{
+			Hint:      "AlterTable#分区操作检查",
+			CheckFunc: (*Rule).RuleAlterTablePartition,
 		},
 		{
 			Hint:      "AlterTable#检查TiDBMergeAlter",
@@ -101,6 +105,13 @@ func AlterTableRules() []Rule {
 			CheckFunc: (*Rule).RuleAlterTableRowSizeTooLarge,
 		},
 	}
+}
+
+// RuleAlterTablePartition checks partition operations and exchange tables.
+func (r *Rule) RuleAlterTablePartition(tistmt *ast.StmtNode) {
+	v := &TraverseAlterTablePartition{}
+	(*tistmt).Accept(v)
+	LogicAlterTablePartition(v, r)
 }
 
 // RuleAlterTableIsExist

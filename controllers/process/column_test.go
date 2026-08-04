@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pingcap/tidb/parser/mysql"
+	"github.com/pingcap/tidb/pkg/parser/mysql"
 )
 
 func TestCheckColumnDefaultValueDate(t *testing.T) {

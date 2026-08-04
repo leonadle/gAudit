@@ -4,7 +4,7 @@ import (
 	"sqlSyntaxAudit/controllers/parser"
 	"testing"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 func TestTableNameWithSchemaPreservesOriginalCase(t *testing.T) {

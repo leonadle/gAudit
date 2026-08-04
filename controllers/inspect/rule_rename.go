@@ -7,7 +7,7 @@
 package inspect
 
 import (
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 func RenameTableRules() []Rule {

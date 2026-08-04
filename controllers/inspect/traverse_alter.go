@@ -6,11 +6,14 @@
 package inspect
 
 import (
+	"fmt"
+	"sort"
 	"sqlSyntaxAudit/common/utils"
 	"sqlSyntaxAudit/controllers/process"
+	"strings"
 
-	"github.com/pingcap/tidb/parser/ast"
-	driver "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	driver "github.com/pingcap/tidb/pkg/parser/test_driver"
 )
 
 // TraverseAlterTableIsExist
@@ -29,16 +32,107 @@ func (c *TraverseAlterTableIsExist) Leave(in ast.Node) (ast.Node, bool) {
 	return in, true
 }
 
+// TraverseAlterTablePartition extracts partition operations and exchange tables.
+type TraverseAlterTablePartition struct {
+	Table          string
+	IsMatch        int
+	ExchangeTables []string
+}
+
+func (c *TraverseAlterTablePartition) Enter(in ast.Node) (ast.Node, bool) {
+	stmt, ok := in.(*ast.AlterTableStmt)
+	if !ok {
+		return in, false
+	}
+	c.Table = tableNameWithSchema(stmt.Table)
+	for _, spec := range stmt.Specs {
+		switch spec.Tp {
+		case ast.AlterTableAddPartitions,
+			ast.AlterTablePartitionAttributes,
+			ast.AlterTablePartitionOptions,
+			ast.AlterTableCoalescePartitions,
+			ast.AlterTableDropPartition,
+			ast.AlterTableTruncatePartition,
+			ast.AlterTablePartition,
+			ast.AlterTableRemovePartitioning,
+			ast.AlterTableRebuildPartition,
+			ast.AlterTableReorganizePartition,
+			ast.AlterTableCheckPartitions,
+			ast.AlterTableExchangePartition,
+			ast.AlterTableOptimizePartition,
+			ast.AlterTableRepairPartition,
+			ast.AlterTableImportPartitionTablespace,
+			ast.AlterTableDiscardPartitionTablespace,
+			ast.AlterTableDropFirstPartition,
+			ast.AlterTableAddLastPartition,
+			ast.AlterTableReorganizeLastPartition,
+			ast.AlterTableReorganizeFirstPartition:
+			c.IsMatch++
+			if spec.Tp == ast.AlterTableExchangePartition && spec.NewTable != nil {
+				c.ExchangeTables = append(c.ExchangeTables, tableNameWithSchema(spec.NewTable))
+			}
+		}
+	}
+	return in, false
+}
+
+func (c *TraverseAlterTablePartition) Leave(in ast.Node) (ast.Node, bool) {
+	return in, true
+}
+
 // TraverseAlterTiDBMerge
 type TraverseAlterTiDBMerge struct {
-	Table    string // 表名
-	SpecsLen int    // 语句长度
+	Table     string   // 表名
+	SpecsLen  int      // 语句长度
+	Conflicts []string // 同一条语句中重复修改的对象
 }
 
 func (c *TraverseAlterTiDBMerge) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
 		c.Table = tableNameWithSchema(stmt.Table)
 		c.SpecsLen = len(stmt.Specs)
+		targets := make(map[string]int)
+		labels := make(map[string]string)
+		addTarget := func(kind, name string) {
+			if name == "" {
+				return
+			}
+			key := kind + ":" + strings.ToLower(name)
+			targets[key]++
+			labels[key] = fmt.Sprintf("%s`%s`", kind, name)
+		}
+		for _, spec := range stmt.Specs {
+			switch spec.Tp {
+			case ast.AlterTableAddColumns:
+				for _, col := range spec.NewColumns {
+					addTarget("列", col.Name.Name.O)
+				}
+			case ast.AlterTableDropColumn, ast.AlterTableChangeColumn, ast.AlterTableRenameColumn, ast.AlterTableAlterColumn:
+				if spec.OldColumnName != nil {
+					addTarget("列", spec.OldColumnName.Name.O)
+				}
+			case ast.AlterTableModifyColumn:
+				for _, col := range spec.NewColumns {
+					addTarget("列", col.Name.Name.O)
+				}
+			case ast.AlterTableAddConstraint:
+				if spec.Constraint != nil {
+					addTarget("索引", spec.Constraint.Name)
+				}
+			case ast.AlterTableDropIndex:
+				addTarget("索引", spec.Name)
+			case ast.AlterTableRenameIndex:
+				addTarget("索引", spec.FromKey.O)
+			case ast.AlterTableIndexInvisible:
+				addTarget("索引", spec.IndexName.O)
+			}
+		}
+		for key, count := range targets {
+			if count > 1 {
+				c.Conflicts = append(c.Conflicts, labels[key])
+			}
+		}
+		sort.Strings(c.Conflicts)
 	}
 	return in, false
 }
@@ -49,23 +143,29 @@ func (c *TraverseAlterTiDBMerge) Leave(in ast.Node) (ast.Node, bool) {
 
 // TraverseAlterTableDropCols
 type TraverseAlterTableDropColsOrIndexes struct {
-	Table   string   // 表名
-	IsMatch int      // 是否匹配当前规则
-	Cols    []string // 列
-	Indexes []string // 索引
+	Table           string          // 表名
+	IsMatch         int             // 是否匹配当前规则
+	Cols            []string        // 列
+	Indexes         []string        // 索引
+	ColsIfExists    map[string]bool // DROP COLUMN IF EXISTS
+	IndexesIfExists map[string]bool // DROP INDEX IF EXISTS
 }
 
 func (c *TraverseAlterTableDropColsOrIndexes) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
 		c.Table = tableNameWithSchema(stmt.Table)
+		c.ColsIfExists = make(map[string]bool)
+		c.IndexesIfExists = make(map[string]bool)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableDropColumn:
 				c.IsMatch++
 				c.Cols = append(c.Cols, spec.OldColumnName.Name.O)
+				c.ColsIfExists[strings.ToLower(spec.OldColumnName.Name.O)] = spec.IfExists
 			case ast.AlterTableDropIndex:
 				c.IsMatch++
 				c.Indexes = append(c.Indexes, spec.Name)
+				c.IndexesIfExists[strings.ToLower(spec.Name)] = spec.IfExists
 			}
 		}
 	}
@@ -157,8 +257,8 @@ func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 			case ast.AlterTableAddColumns, ast.AlterTableModifyColumn, ast.AlterTableChangeColumn:
 				c.IsMatch++
 				for _, col := range spec.NewColumns {
-					colCharset := col.Tp.Charset
-					colCollate := col.Tp.Collate
+					colCharset := col.Tp.GetCharset()
+					colCollate := col.Tp.GetCollate()
 					for _, v := range col.Options {
 						if v.Tp == ast.ColumnOptionCollate {
 							colCollate = v.StrValue
@@ -171,7 +271,7 @@ func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 							process.ColumnCharset{
 								Table:   tableNameWithSchema(stmt.Table),
 								Column:  col.Name.Name.O,
-								Tp:      col.Tp.Tp,
+								Tp:      col.Tp.GetType(),
 								Charset: colCharset,
 								Collate: colCollate,
 							},
@@ -213,7 +313,7 @@ func (c *TraverseAlterTableAddColOptions) Enter(in ast.Node) (ast.Node, bool) {
 							HasDefaultValue = true
 							if v, ok := opt.Expr.(*driver.ValueExpr); ok {
 								// 有默认值，且为NULL，且有NOT NULL约束，如(not null default null)
-								DefaultIsNull = v.Datum.IsNull()
+								DefaultIsNull = v.Kind() == driver.KindNull
 								// 获取列的默认值
 								DefaultValue = v.GetValue()
 							}
@@ -231,8 +331,8 @@ func (c *TraverseAlterTableAddColOptions) Enter(in ast.Node) (ast.Node, bool) {
 							process.ColOptions{
 								Table:           c.Table,
 								Column:          col.Name.Name.O,
-								Tp:              col.Tp.Tp,
-								Flen:            col.Tp.Flen,
+								Tp:              col.Tp.GetType(),
+								Flen:            col.Tp.GetFlen(),
 								NotNullFlag:     NotNullFlag,
 								HasDefaultValue: HasDefaultValue,
 								DefaultValue:    DefaultValue,
@@ -279,9 +379,10 @@ func (c *TraverseAlterTableAddPrimaryKey) Enter(in ast.Node) (ast.Node, bool) {
 				c.IsMatch++
 				if spec.Constraint.Tp == ast.ConstraintPrimaryKey {
 					for _, col := range spec.Constraint.Keys {
+						name, _ := indexPartIdentity(col)
 						// 去重
-						if !utils.IsContain(c.Cols, col.Column.Name.O) {
-							c.Cols = append(c.Cols, col.Column.Name.O)
+						if name != "" && !utils.IsContain(c.Cols, name) {
+							c.Cols = append(c.Cols, name)
 						}
 					}
 				}
@@ -297,20 +398,23 @@ func (c *TraverseAlterTableAddPrimaryKey) Leave(in ast.Node) (ast.Node, bool) {
 
 // TraverseAlterTableAddColRepeatDefine
 type TraverseAlterTableAddColRepeatDefine struct {
-	Table   string   // 表名
-	IsMatch int      // 是否匹配当前规则
-	Cols    []string // 列名
+	Table       string          // 表名
+	IsMatch     int             // 是否匹配当前规则
+	Cols        []string        // 列名
+	IfNotExists map[string]bool // ADD COLUMN IF NOT EXISTS
 }
 
 func (c *TraverseAlterTableAddColRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
 		c.Table = tableNameWithSchema(stmt.Table)
+		c.IfNotExists = make(map[string]bool)
 		for _, spec := range stmt.Specs {
 			switch spec.Tp {
 			case ast.AlterTableAddColumns:
 				c.IsMatch++
 				for _, col := range spec.NewColumns {
 					c.Cols = append(c.Cols, col.Name.Name.O)
+					c.IfNotExists[strings.ToLower(col.Name.Name.O)] = spec.IfNotExists
 				}
 			}
 		}
@@ -341,7 +445,7 @@ func (c *TraverseAlterTableAddIndexPrefix) Enter(in ast.Node) (ast.Node, bool) {
 				case ast.ConstraintUniq, ast.ConstraintUniqKey, ast.ConstraintUniqIndex:
 					c.Prefix.UniqueKeys = append(c.Prefix.UniqueKeys, spec.Constraint.Name)
 				case ast.ConstraintFulltext:
-					c.Prefix.SecondaryKeys = append(c.Prefix.FulltextKeys, spec.Constraint.Name)
+					c.Prefix.FulltextKeys = append(c.Prefix.FulltextKeys, spec.Constraint.Name)
 				case ast.ConstraintIndex, ast.ConstraintKey:
 					c.Prefix.SecondaryKeys = append(c.Prefix.SecondaryKeys, spec.Constraint.Name)
 				}
@@ -373,7 +477,7 @@ func (c *TraverseAlterTableAddIndexCount) Enter(in ast.Node) (ast.Node, bool) {
 				switch spec.Constraint.Tp {
 				case ast.ConstraintPrimaryKey:
 					c.Number.Keys = append(c.Number.Keys, process.IndexLen{Index: "PrimaryKey", Len: len(spec.Constraint.Keys)})
-				case ast.ConstraintIndex, ast.ConstraintKey, ast.ConstraintUniq, ast.ConstraintUniqKey, ast.ConstraintUniqIndex:
+				case ast.ConstraintIndex, ast.ConstraintKey, ast.ConstraintUniq, ast.ConstraintUniqKey, ast.ConstraintUniqIndex, ast.ConstraintFulltext:
 					c.Number.Number++
 					c.Number.Keys = append(c.Number.Keys, process.IndexLen{Index: spec.Constraint.Name, Len: len(spec.Constraint.Keys)})
 				}
@@ -415,20 +519,23 @@ func (c *TraverseAlterTableAddConstraint) Leave(in ast.Node) (ast.Node, bool) {
 
 // TraverseAlterTableAddIndexRepeatDefine
 type TraverseAlterTableAddIndexRepeatDefine struct {
-	Table   string   // 表名
-	IsMatch int      // 是否匹配当前规则
-	Indexes []string // 索引
+	Table       string          // 表名
+	IsMatch     int             // 是否匹配当前规则
+	Indexes     []string        // 索引
+	IfNotExists map[string]bool // ADD INDEX IF NOT EXISTS
 }
 
 func (c *TraverseAlterTableAddIndexRepeatDefine) Enter(in ast.Node) (ast.Node, bool) {
 	if stmt, ok := in.(*ast.AlterTableStmt); ok {
 		c.Table = tableNameWithSchema(stmt.Table)
+		c.IfNotExists = make(map[string]bool)
 		for _, spec := range stmt.Specs {
 			if spec.Tp == ast.AlterTableAddConstraint {
 				c.IsMatch++
 				switch spec.Constraint.Tp {
 				case ast.ConstraintUniq, ast.ConstraintUniqKey, ast.ConstraintUniqIndex, ast.ConstraintIndex, ast.ConstraintKey, ast.ConstraintFulltext:
 					c.Indexes = append(c.Indexes, spec.Constraint.Name)
+					c.IfNotExists[strings.ToLower(spec.Constraint.Name)] = spec.Constraint.IfNotExists
 				}
 			}
 		}
@@ -471,7 +578,9 @@ func (c *TraverseAlterTableRedundantIndexes) Enter(in ast.Node) (ast.Node, bool)
 					c.Redundant.Indexes = append(c.Redundant.Indexes, spec.Constraint.Name)
 					var idxColsMap []string
 					for _, v := range spec.Constraint.Keys {
-						idxColsMap = append(idxColsMap, v.Column.Name.L)
+						if identity, _ := indexPartIdentity(v); identity != "" {
+							idxColsMap = append(idxColsMap, identity)
+						}
 					}
 					c.Redundant.IndexesCols = append(c.Redundant.IndexesCols, process.IndexColsMap{Index: spec.Constraint.Name, Tag: "is_add", Cols: idxColsMap})
 				}
@@ -502,7 +611,9 @@ func (c *TraverseAlterTableDisabledIndexes) Enter(in ast.Node) (ast.Node, bool) 
 				c.IsMatch++
 				var idxColsMap []string
 				for _, v := range spec.Constraint.Keys {
-					idxColsMap = append(idxColsMap, v.Column.Name.L)
+					if identity, isColumn := indexPartIdentity(v); isColumn && identity != "" {
+						idxColsMap = append(idxColsMap, identity)
+					}
 				}
 				c.DisabledIndexes.IndexesCols = append(c.DisabledIndexes.IndexesCols, process.IndexColsMap{Index: spec.Constraint.Name, Cols: idxColsMap})
 			}
@@ -539,7 +650,7 @@ func (c *TraverseAlterTableModifyColOptions) Enter(in ast.Node) (ast.Node, bool)
 							HasDefaultValue = true
 							if v, ok := opt.Expr.(*driver.ValueExpr); ok {
 								// 有默认值，且为NULL，且有NOT NULL约束，如(not null default null)
-								DefaultIsNull = v.Datum.IsNull()
+								DefaultIsNull = v.Kind() == driver.KindNull
 								// 获取列的默认值
 								DefaultValue = v.GetValue()
 							}
@@ -557,8 +668,8 @@ func (c *TraverseAlterTableModifyColOptions) Enter(in ast.Node) (ast.Node, bool)
 							process.ColOptions{
 								Table:           c.Table,
 								Column:          col.Name.Name.O,
-								Tp:              col.Tp.Tp,
-								Flen:            col.Tp.Flen,
+								Tp:              col.Tp.GetType(),
+								Flen:            col.Tp.GetFlen(),
 								NotNullFlag:     NotNullFlag,
 								HasDefaultValue: HasDefaultValue,
 								DefaultValue:    DefaultValue,
@@ -601,7 +712,7 @@ func (c *TraverseAlterTableChangeColOptions) Enter(in ast.Node) (ast.Node, bool)
 							HasDefaultValue = true
 							if v, ok := opt.Expr.(*driver.ValueExpr); ok {
 								// 有默认值，且为NULL，且有NOT NULL约束，如(not null default null)
-								DefaultIsNull = v.Datum.IsNull()
+								DefaultIsNull = v.Kind() == driver.KindNull
 								// 获取列的默认值
 								DefaultValue = v.GetValue()
 							}
@@ -620,8 +731,8 @@ func (c *TraverseAlterTableChangeColOptions) Enter(in ast.Node) (ast.Node, bool)
 								Table:           c.Table,
 								OldColumn:       spec.OldColumnName.Name.O,
 								Column:          col.Name.Name.O,
-								Tp:              col.Tp.Tp,
-								Flen:            col.Tp.Flen,
+								Tp:              col.Tp.GetType(),
+								Flen:            col.Tp.GetFlen(),
 								NotNullFlag:     NotNullFlag,
 								HasDefaultValue: HasDefaultValue,
 								DefaultValue:    DefaultValue,
@@ -755,7 +866,9 @@ func (c *TraverseAlterTableShowCreateTableGetCols) Enter(in ast.Node) (ast.Node,
 		for _, cons := range stmt.Constraints {
 			if cons.Tp == ast.ConstraintPrimaryKey {
 				for _, col := range cons.Keys {
-					c.PrimaryKeys = append(c.PrimaryKeys, col.Column.Name.O)
+					if identity, _ := indexPartIdentity(col); identity != "" {
+						c.PrimaryKeys = append(c.PrimaryKeys, identity)
+					}
 				}
 			}
 		}
@@ -792,8 +905,10 @@ func (c *TraverseAlterTableInnodbLargePrefix) Enter(in ast.Node) (ast.Node, bool
 					var LargePrefixIndexColsMap process.LargePrefixIndexColsMap
 					LargePrefixIndexColsMap.Name = spec.Constraint.Name
 					for _, col := range spec.Constraint.Keys {
-						LargePrefixIndexColsMap.Keys = append(LargePrefixIndexColsMap.Keys,
-							process.LargePrefixIndexPartSpecification{Column: col.Column.Name.L, Ilen: col.Length})
+						if identity, isColumn := indexPartIdentity(col); isColumn && identity != "" {
+							LargePrefixIndexColsMap.Keys = append(LargePrefixIndexColsMap.Keys,
+								process.LargePrefixIndexPartSpecification{Column: identity, Ilen: col.Length})
+						}
 					}
 					c.LargePrefix.LargePrefixIndexColsMaps = append(c.LargePrefix.LargePrefixIndexColsMaps, LargePrefixIndexColsMap)
 				}
@@ -825,11 +940,11 @@ func (c *TraverseAlterTableRowSizeTooLarge) Enter(in ast.Node) (ast.Node, bool) 
 					c.RowSizeColsMaps = append(c.RowSizeColsMaps,
 						process.RowSizeTooLargePartSpecification{
 							Column:  col.Name.Name.L,
-							Tp:      col.Tp.Tp,
-							Flen:    col.Tp.Flen,
-							Decimal: col.Tp.Decimal,
-							Charset: col.Tp.Charset,
-							Elems:   col.Tp.Elems,
+							Tp:      col.Tp.GetType(),
+							Flen:    col.Tp.GetFlen(),
+							Decimal: col.Tp.GetDecimal(),
+							Charset: col.Tp.GetCharset(),
+							Elems:   col.Tp.GetElems(),
 						})
 				}
 			}

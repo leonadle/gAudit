@@ -3,7 +3,7 @@ package inspect
 import (
 	"sqlSyntaxAudit/common/utils"
 
-	"github.com/pingcap/tidb/parser/ast"
+	"github.com/pingcap/tidb/pkg/parser/ast"
 )
 
 func tableNameWithSchema(table *ast.TableName) string {

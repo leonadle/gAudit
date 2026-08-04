@@ -16,8 +16,8 @@ import (
 	logger "sqlSyntaxAudit/middleware/log"
 	"sync"
 
-	"github.com/pingcap/tidb/parser/ast"
-	_ "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/sirupsen/logrus"
 )
 
@@ -245,6 +245,11 @@ func (c *TraverseStatement) Enter(in ast.Node) (ast.Node, bool) {
 	case *ast.AlterTableStmt:
 		c.setType("ALTER TABLE")
 		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))
+		for _, spec := range stmt.Specs {
+			if spec.Tp == ast.AlterTableExchangePartition && spec.NewTable != nil {
+				c.Tables = append(c.Tables, tableNameWithSchema(spec.NewTable, c.PreserveCase))
+			}
+		}
 	case *ast.DropIndexStmt:
 		c.setType("DROP INDEX")
 		c.Tables = append(c.Tables, tableNameWithSchema(stmt.Table, c.PreserveCase))

@@ -26,8 +26,8 @@ import (
 	query "sqlSyntaxAudit/common/query"
 
 	"github.com/jinzhu/copier"
-	"github.com/pingcap/tidb/parser/ast"
-	_ "github.com/pingcap/tidb/types/parser_driver"
+	"github.com/pingcap/tidb/pkg/parser/ast"
+	_ "github.com/pingcap/tidb/pkg/parser/test_driver"
 	"github.com/sirupsen/logrus"
 )
 
@@ -375,6 +375,10 @@ func (c *Checker) Check(RequestID string) (err error, returnData []ReturnData) {
 			returnData = append(returnData, c.CreateViewStmt(stmt, kv, fingerId))
 		case *ast.AlterTableStmt:
 			data, mergeAlter := c.AlterTableStmt(stmt, kv, fingerId)
+			mergeAlters = append(mergeAlters, mergeAlter)
+			returnData = append(returnData, data)
+		case *ast.CreateIndexStmt, *ast.DropIndexStmt:
+			data, mergeAlter := c.IndexStmt(stmt, kv, fingerId)
 			mergeAlters = append(mergeAlters, mergeAlter)
 			returnData = append(returnData, data)
 		case *ast.DropTableStmt, *ast.TruncateTableStmt:
