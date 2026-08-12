@@ -30,7 +30,10 @@ type TableOptions struct {
 
 // 检查表名长度
 func (t *TableOptions) CheckTableLength() error {
-	if utf8.RuneCountInString(t.Table) > t.AuditConfig.MAX_TABLE_NAME_LENGTH {
+	// A qualified name is stored as "schema.table". The configured limit
+	// applies to the table identifier, not the optional schema prefix.
+	_, table := utils.SplitTableName(t.Table)
+	if utf8.RuneCountInString(table) > t.AuditConfig.MAX_TABLE_NAME_LENGTH {
 		return fmt.Errorf("表名`%s`命名长度超出限制，最大字符数%d", t.Table, t.AuditConfig.MAX_TABLE_NAME_LENGTH)
 	}
 	return nil
@@ -39,7 +42,11 @@ func (t *TableOptions) CheckTableLength() error {
 // 检查表名合法性
 func (t *TableOptions) CheckTableIdentifer() error {
 	if t.AuditConfig.CHECK_IDENTIFIER {
-		if ok := utils.IsMatchPattern(utils.NamePattern, t.Table); !ok {
+		schema, table := utils.SplitTableName(t.Table)
+		if schema != "" && !utils.IsMatchPattern(utils.NamePattern, schema) {
+			return fmt.Errorf("库`%s`的命名不符合要求，仅允许匹配正则`%s`", schema, utils.NamePattern)
+		}
+		if !utils.IsMatchPattern(utils.NamePattern, table) {
 			return fmt.Errorf("表`%s`的命名不符合要求，仅允许匹配正则`%s`", t.Table, utils.NamePattern)
 		}
 	}
@@ -49,7 +56,13 @@ func (t *TableOptions) CheckTableIdentifer() error {
 // 检查表名是否为关键字
 func (t *TableOptions) CheckTableIdentiferKeyword() error {
 	if t.AuditConfig.CHECK_IDENTIFER_KEYWORD {
-		if _, ok := Keywords[strings.ToUpper(t.Table)]; ok {
+		schema, table := utils.SplitTableName(t.Table)
+		if schema != "" {
+			if _, ok := Keywords[strings.ToUpper(schema)]; ok {
+				return fmt.Errorf("库`%s`的命名不允许使用关键字", schema)
+			}
+		}
+		if _, ok := Keywords[strings.ToUpper(table)]; ok {
 			return fmt.Errorf("表`%s`的命名不允许使用关键字", t.Table)
 		}
 	}
