@@ -66,6 +66,9 @@ func (c *Charset) CheckColumn() error {
 			if len(col.Charset) == 0 || len(col.Collate) == 0 {
 				return fmt.Errorf("列`%s`必须同时指定字符集和排序规则[表`%s`]", col.Column, col.Table)
 			}
+			if len(c.SupportCharset) > 0 && !utils.IsContain(c.SupportCharset, col.Charset) {
+				return fmt.Errorf("列`%s`指定的字符集`%s`不符合要求，可选字符集为%s[表`%s`]", col.Column, col.Charset, c.SupportCharset, col.Table)
+			}
 			// 检查排序规则
 			if !utils.HasPrefix(col.Collate, col.Charset+"_", false) && len(col.Collate) > 0 {
 				// 检查排序规则的前缀，前缀必须为字符集+"_"

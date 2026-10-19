@@ -24,6 +24,7 @@
     - [ENABLE_CREATE_VIEW](#enable_create_view)
     - [MAX_COLUMN_NAME_LENGTH](#max_column_name_length)
     - [CHECK_COLUMN_CHARSET](#check_column_charset)
+    - [COLUMN_SUPPORT_CHARSET](#column_support_charset)
     - [CHECK_COLUMN_COMMENT](#check_column_comment)
     - [COLUMN_MAX_CHAR_LENGTH](#column_max_char_length)
     - [MAX_VARCHAR_LENGTH](#max_varchar_length)
@@ -201,9 +202,22 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 可选值: 1~64
 
 #### CHECK_COLUMN_CHARSET
-描述: 是否检查列的字符集
+描述: 是否检查列的字符集。适用于 CREATE TABLE 和 ALTER TABLE 的 ADD/MODIFY/CHANGE COLUMN；仅检查显式指定字符集或排序规则的 CHAR/VARCHAR/ENUM/SET 列，要求两者同时指定且排序规则前缀匹配。两者均未指定时保持继承行为，不做列级检查。
 默认值: true
 可选值: true/false
+
+#### COLUMN_SUPPORT_CHARSET
+描述: 列允许的字符集白名单，不区分大小写；仅在 CHECK_COLUMN_CHARSET=true 时生效。与 TABLE_SUPPORT_CHARSET 相互独立，不限制具体排序规则。
+默认值: []（未配置或空列表时不限制列字符集，保持原有行为）
+可选值: DB 支持的字符集名称数组
+CASE:
+```json
+{
+  "CHECK_COLUMN_CHARSET": true,
+  "COLUMN_SUPPORT_CHARSET": ["utf8mb4"]
+}
+```
+此配置会拦截显式使用 utf8 的受检列；允许 utf8mb4_general_ci、utf8mb4_bin 等与 utf8mb4 匹配的排序规则。
 
 #### CHECK_COLUMN_COMMENT
 描述: 是否检查列的注释

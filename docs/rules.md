@@ -103,7 +103,8 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 | N/A                          | 不能定义`NOT NULL DEFAULT NULL`                                                                                                                 |
 | N/A                          | BLOB,TEXT,GEOMETRY,JSON类型不能设置默认值                                                                                                       |
 | N/A                          | 检查默认值(有默认值、且不为NULL)和数据类型是否匹配;默认值是否有效，如不为datetime和timestamp类型的字段配置了`default current_timestamp`         |
-| CHECK_COLUMN_CHARSET         | 是否启用列的字符集检查;<br>列必须同时指定字符集和排序规则;<br>列的排序规则的前缀必须为字符集名;<br>mysql仅支持对char/varchar/enum/set指定字符集 |
+| CHECK_COLUMN_CHARSET         | 是否启用列的字符集检查;<br>显式指定字符集或排序规则的 CHAR/VARCHAR/ENUM/SET 列必须同时指定两者，且排序规则前缀必须为字符集名;<br>两者均未指定时跳过检查 |
+| COLUMN_SUPPORT_CHARSET       | 列允许的字符集白名单，不区分大小写；仅在 CHECK_COLUMN_CHARSET=true 时生效；未配置或空列表表示不限制，与 TABLE_SUPPORT_CHARSET 独立 |
 | N/A                          | 列重复定义检查                                                                                                                                  |
 
 ### 索引检查
