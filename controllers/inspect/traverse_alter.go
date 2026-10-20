@@ -259,9 +259,11 @@ func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 				for _, col := range spec.NewColumns {
 					colCharset := col.Tp.GetCharset()
 					colCollate := col.Tp.GetCollate()
+					var colCollateExplicit bool
 					for _, v := range col.Options {
 						if v.Tp == ast.ColumnOptionCollate {
 							colCollate = v.StrValue
+							colCollateExplicit = true
 						}
 					}
 					// 设置了字符集和排序规则
@@ -269,11 +271,12 @@ func (c *TraverseAlterTableColCharset) Enter(in ast.Node) (ast.Node, bool) {
 						c.Cols = append(
 							c.Cols,
 							process.ColumnCharset{
-								Table:   tableNameWithSchema(stmt.Table),
-								Column:  col.Name.Name.O,
-								Tp:      col.Tp.GetType(),
-								Charset: colCharset,
-								Collate: colCollate,
+								Table:           tableNameWithSchema(stmt.Table),
+								Column:          col.Name.Name.O,
+								Tp:              col.Tp.GetType(),
+								Charset:         colCharset,
+								Collate:         colCollate,
+								CollateExplicit: colCollateExplicit,
 							},
 						)
 					}

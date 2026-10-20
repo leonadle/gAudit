@@ -126,6 +126,7 @@ func (t *TableOptions) CheckTableCharset() error {
 	}
 	charset := Charset{
 		SupportCharset:     tblSupportCharset,
+		SupportCollation:   t.AuditConfig.TABLE_SUPPORT_COLLATION,
 		RecommendCollation: tblRecommendCollation,
 		Table:              TableCharset{Table: t.Table, Charset: t.Charset, Collate: t.Collate},
 	}

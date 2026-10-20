@@ -11,6 +11,7 @@
     - [CHECK_IDENTIFER_KEYWORD](#check_identifer_keyword)
     - [CHECK_TABLE_CHARSET](#check_table_charset)
     - [TABLE_SUPPORT_CHARSET](#table_support_charset)
+    - [TABLE_SUPPORT_COLLATION](#table_support_collation)
     - [CHECK_TABLE_ENGINE](#check_table_engine)
     - [TABLE_SUPPORT_ENGINE](#table_support_engine)
     - [ENABLE_PARTITION_TABLE](#enable_partition_table)
@@ -25,6 +26,7 @@
     - [MAX_COLUMN_NAME_LENGTH](#max_column_name_length)
     - [CHECK_COLUMN_CHARSET](#check_column_charset)
     - [COLUMN_SUPPORT_CHARSET](#column_support_charset)
+    - [COLUMN_SUPPORT_COLLATION](#column_support_collation)
     - [CHECK_COLUMN_COMMENT](#check_column_comment)
     - [COLUMN_MAX_CHAR_LENGTH](#column_max_char_length)
     - [MAX_VARCHAR_LENGTH](#max_varchar_length)
@@ -124,12 +126,21 @@
 可选值: true/false
 
 #### TABLE_SUPPORT_CHARSET
-描述: 表支持的字符集
+描述: 表支持的字符集；recommend 只用于推荐提示，不限制具体排序规则。
 默认值: [{"charset": "utf8", "recommend": "utf8_general_ci"}, {"charset": "utf8mb4", "recommend": "utf8mb4_general_ci"}]
 可选值: DB支持的字符集
 CASE:
 ```sql
 default character set utf8mb4 collate utf8mb4_general_ci
+```
+
+#### TABLE_SUPPORT_COLLATION
+描述: 表显式指定的排序规则白名单，不区分大小写；在 CHECK_TABLE_CHARSET=true 时生效，覆盖 CREATE TABLE 和 ALTER TABLE 的表选项。未指定 COLLATE 时允许通过，不检查继承或默认得到的排序规则；表字符集仍按 TABLE_SUPPORT_CHARSET 校验。
+默认值: []（未配置或空列表时不额外限制排序规则，保留原有检查）
+可选值: DB 支持的排序规则名称数组
+CASE:
+```json
+"TABLE_SUPPORT_COLLATION": ["utf8mb4_general_ci", "utf8mb4_bin"]
 ```
 
 #### CHECK_TABLE_ENGINE
@@ -202,7 +213,7 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 可选值: 1~64
 
 #### CHECK_COLUMN_CHARSET
-描述: 是否检查列的字符集。适用于 CREATE TABLE 和 ALTER TABLE 的 ADD/MODIFY/CHANGE COLUMN；仅检查显式指定字符集或排序规则的 CHAR/VARCHAR/ENUM/SET 列，要求两者同时指定且排序规则前缀匹配。两者均未指定时保持继承行为，不做列级检查。
+描述: 是否检查列的字符集和排序规则。适用于 CREATE TABLE 和 ALTER TABLE 的 ADD/MODIFY/CHANGE COLUMN；CHAR/VARCHAR/ENUM/SET 列进行字符集和排序规则匹配检查。未配置非空 COLUMN_SUPPORT_COLLATION 时保留原有规则：显式指定其中一项就必须同时指定两者；配置非空白名单后允许省略 COLLATE，或仅声明白名单中的 COLLATE。两者均未指定时保持继承行为，不检查最终继承值。显式排序规则白名单也适用于 TEXT 列。
 默认值: true
 可选值: true/false
 
@@ -218,6 +229,25 @@ CASE:
 }
 ```
 此配置会拦截显式使用 utf8 的受检列；允许 utf8mb4_general_ci、utf8mb4_bin 等与 utf8mb4 匹配的排序规则。
+
+#### COLUMN_SUPPORT_COLLATION
+描述: 列显式指定的排序规则白名单，不区分大小写；仅在 CHECK_COLUMN_CHARSET=true 时生效，与 TABLE_SUPPORT_COLLATION 相互独立。非空时允许省略 COLLATE；CHAR/VARCHAR/ENUM/SET 列仅声明 COLLATE 时按该排序规则推导字符集并校验 COLUMN_SUPPORT_CHARSET。TEXT 列显式指定的 COLLATE 同样受限；JSON/BLOB 等类型的隐式 binary 不受此白名单影响。
+默认值: []（未配置或空列表时保留原有列检查，不额外限制具体排序规则）
+可选值: DB 支持的排序规则名称数组
+CASE（表和列仅允许显式指定以下两种排序规则，也允许不指定 COLLATE）:
+```json
+{
+  "CHECK_TABLE_CHARSET": true,
+  "TABLE_SUPPORT_CHARSET": [
+    {"charset": "utf8mb4", "recommend": "utf8mb4_general_ci"}
+  ],
+  "TABLE_SUPPORT_COLLATION": ["utf8mb4_general_ci", "utf8mb4_bin"],
+  "CHECK_COLUMN_CHARSET": true,
+  "COLUMN_SUPPORT_CHARSET": ["utf8mb4"],
+  "COLUMN_SUPPORT_COLLATION": ["utf8mb4_general_ci", "utf8mb4_bin"]
+}
+```
+此配置会拦截显式指定 utf8mb4_unicode_ci 的表或列。省略 COLLATE 时允许继承或采用数据库默认值，不保证最终排序规则属于上述两种。
 
 #### CHECK_COLUMN_COMMENT
 描述: 是否检查列的注释

@@ -8,6 +8,7 @@
     "CHECK_IDENTIFIER": true,
     "CHECK_IDENTIFER_KEYWORD": true,
     "CHECK_TABLE_CHARSET": true,
+    "TABLE_SUPPORT_COLLATION": [],
     "TABLE_SUPPORT_CHARSET": [
         {
             "charset": "utf8",
@@ -38,6 +39,7 @@
     "ENABLE_COLUMN_BIT_TYPE": true,
     "CHECK_COLUMN_CHARSET": true,
     "COLUMN_SUPPORT_CHARSET": [],
+    "COLUMN_SUPPORT_COLLATION": [],
     "CHECK_COLUMN_COMMENT": true,
     "COLUMN_MAX_CHAR_LENGTH": 64,
     "ENABLE_COLUMN_TIMESTAMP_TYPE": true,

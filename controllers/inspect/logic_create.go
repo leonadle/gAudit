@@ -164,6 +164,7 @@ func LogicCreateTableColsCharset(v *TraverseCreateTableColsCharset, r *Rule) {
 	// 列字符集检查
 	if r.AuditConfig.CHECK_COLUMN_CHARSET {
 		v.SupportCharset = r.AuditConfig.COLUMN_SUPPORT_CHARSET
+		v.SupportCollation = r.AuditConfig.COLUMN_SUPPORT_COLLATION
 		if len(v.Cols) > 0 {
 			if err := v.CheckColumn(); err != nil {
 				r.Summary = append(r.Summary, err.Error())

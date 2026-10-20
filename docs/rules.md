@@ -31,7 +31,8 @@
 | CHECK_TABLE_COMMENT                  | 检查表是否有注释                              |
 | TABLE_COMMENT_LENGTH                 | 检查表的注释长度，防止溢出                    |
 | CHECK_TABLE_CHARSET                  | 是否启用字符集和排序规则检查                  |
-| TABLE_SUPPORT_CHARSET                | 是否支持分区表                                |
+| TABLE_SUPPORT_CHARSET                | 表支持的字符集；recommend 仅用于推荐提示       |
+| TABLE_SUPPORT_COLLATION              | 表显式指定的排序规则白名单；未配置或空列表时不额外限制；允许省略 COLLATE；随 CHECK_TABLE_CHARSET 生效 |
 | CHECK_TABLE_AUTOINCREMENT_INIT_VALUE | 检查建表时自增列初始值是否为1                 |
 | TABLE_AT_LEAST_ONE_COLUMN            | 表至少要有一列，语法默认支持                  |
 | ENABLE_DROP_COLS                     | 是否允许DROP列                                |
@@ -103,8 +104,9 @@ UPDATED_AT datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTA
 | N/A                          | 不能定义`NOT NULL DEFAULT NULL`                                                                                                                 |
 | N/A                          | BLOB,TEXT,GEOMETRY,JSON类型不能设置默认值                                                                                                       |
 | N/A                          | 检查默认值(有默认值、且不为NULL)和数据类型是否匹配;默认值是否有效，如不为datetime和timestamp类型的字段配置了`default current_timestamp`         |
-| CHECK_COLUMN_CHARSET         | 是否启用列的字符集检查;<br>显式指定字符集或排序规则的 CHAR/VARCHAR/ENUM/SET 列必须同时指定两者，且排序规则前缀必须为字符集名;<br>两者均未指定时跳过检查 |
+| CHECK_COLUMN_CHARSET         | 是否启用列的字符集和排序规则检查;<br>CHAR/VARCHAR/ENUM/SET 列校验字符集及排序规则匹配;<br>未启用排序规则白名单时保留两者同时指定的要求；启用后允许省略 COLLATE 或仅声明白名单中的 COLLATE |
 | COLUMN_SUPPORT_CHARSET       | 列允许的字符集白名单，不区分大小写；仅在 CHECK_COLUMN_CHARSET=true 时生效；未配置或空列表表示不限制，与 TABLE_SUPPORT_CHARSET 独立 |
+| COLUMN_SUPPORT_COLLATION     | 列显式指定的排序规则白名单，含 TEXT；允许省略 COLLATE，不检查继承值；仅在 CHECK_COLUMN_CHARSET=true 时生效；未配置或空列表保留原有检查 |
 | N/A                          | 列重复定义检查                                                                                                                                  |
 
 ### 索引检查

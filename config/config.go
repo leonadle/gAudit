@@ -38,6 +38,7 @@ type AuditConfiguration struct {
 	CHECK_IDENTIFER_KEYWORD              bool                // 对象名是否可以使用关键字
 	CHECK_TABLE_CHARSET                  bool                // 是否检查表的字符集和排序规则
 	TABLE_SUPPORT_CHARSET                []map[string]string // 表支持的字符集
+	TABLE_SUPPORT_COLLATION              []string            // 表允许显式指定的排序规则，空列表表示不限制
 	CHECK_TABLE_ENGINE                   bool                // 是否检查表的存储引擎
 	TABLE_SUPPORT_ENGINE                 []string            // 表支持的存储引擎
 	ENABLE_PARTITION_TABLE               bool                // 是否启用分区表
@@ -53,6 +54,7 @@ type AuditConfiguration struct {
 	MAX_COLUMN_NAME_LENGTH               int      // 列名的长度
 	CHECK_COLUMN_CHARSET                 bool     // 是否检查列的字符集
 	COLUMN_SUPPORT_CHARSET               []string // 列允许的字符集，空列表表示不限制
+	COLUMN_SUPPORT_COLLATION             []string // 列允许显式指定的排序规则，非空时允许省略 COLLATE
 	CHECK_COLUMN_COMMENT                 bool     // 是否检查列的注释
 	COLUMN_MAX_CHAR_LENGTH               int      // char长度大于N的时候需要改为varchar
 	MAX_VARCHAR_LENGTH                   int      // 最大允许定义的varchar长度
@@ -122,6 +124,7 @@ func newAuditConfiguration() *AuditConfiguration {
 		CHECK_IDENTIFER_KEYWORD:              false,
 		CHECK_TABLE_CHARSET:                  true,
 		TABLE_SUPPORT_CHARSET:                []map[string]string{{"charset": "utf8", "recommend": "utf8_general_ci"}, {"charset": "utf8mb4", "recommend": "utf8mb4_general_ci"}},
+		TABLE_SUPPORT_COLLATION:              []string{},
 		CHECK_TABLE_ENGINE:                   true,
 		TABLE_SUPPORT_ENGINE:                 []string{"InnoDB"},
 		ENABLE_PARTITION_TABLE:               false,
@@ -136,6 +139,7 @@ func newAuditConfiguration() *AuditConfiguration {
 		MAX_COLUMN_NAME_LENGTH:               64,
 		CHECK_COLUMN_CHARSET:                 true,
 		COLUMN_SUPPORT_CHARSET:               []string{},
+		COLUMN_SUPPORT_COLLATION:             []string{},
 		CHECK_COLUMN_COMMENT:                 true,
 		COLUMN_MAX_CHAR_LENGTH:               64,
 		MAX_VARCHAR_LENGTH:                   65535,
